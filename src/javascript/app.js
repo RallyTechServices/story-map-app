@@ -1,5 +1,6 @@
 Ext.define("TSApp", {
     extend: 'Rally.app.App',
+    settingsScope: 'workspace',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
@@ -11,31 +12,45 @@ Ext.define("TSApp", {
     integrationHeaders : {
         name : "TSApp"
     },
-                        
+
+    config: {
+        defaultSettings: {
+            selectorType: ''    
+        }
+    },    
+    
+    getSettingsFields: function() {
+        var me = this;
+        var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
+        var settings = [{
+                name: 'selectorType',
+                fieldLabel: 'Select 2nd Level PI',
+                xtype: 'rallyportfolioitemtypecombobox',
+                displayField: 'DisplayName',
+                valueField: 'TypePath',
+                readyEvent: 'ready'
+            },
+            {
+                name: 'defaultRelease',
+                fieldLabel: 'Select Default',
+                xtype: 'rallyreleasecombobox',
+                readyEvent: 'ready'
+            }            
+            ];
+        return settings;
+    },
+
     launch: function() {
         var me = this;
-        // this.setLoading("Loading stuff...");
 
-        // this.down('#message_box').update(this.getContext().getUser());
-        
-        // var model_name = 'Defect',
-        //     field_names = ['Name','State'];
-        
-        // this._loadAStoreWithAPromise(model_name, field_names).then({
-        //     scope: this,
-        //     success: function(store) {
-        //         this._displayGrid(store,field_names);
-        //     },
-        //     failure: function(error_message){
-        //         alert(error_message);
-        //     }
-        // }).always(function() {
-        //     me.setLoading(false);
-        // });
-
-        me.addPickers();
-
-
+        Rally.data.ModelFactory.getModel({
+            type: 'HierarchicalRequirement',
+            success: function(model){
+                me.model = model;
+                me.addPickers();
+            },
+            scope: me
+        });
     },
       
     addPickers: function(){
@@ -52,7 +67,7 @@ Ext.define("TSApp", {
             remoteFilter: true,
             storeConfig: {
                 pageSize: 200,
-                models: ['PortfolioItem/Capability'],
+                models: [me.getSetting('selectorType')],
                 context: {project: null}
             }
         });
@@ -66,6 +81,28 @@ Ext.define("TSApp", {
                     scope: this
                 }
             });
+
+        me.getSelectorBox().add({
+                xtype: 'textfield',
+                itemId:'userStoryName',
+                name: 'name',
+                fieldLabel: 'User Story Name',
+                width:400,
+                allowBlank: false  // requires a non-empty value
+        });
+
+
+        me.getSelectorBox().add({
+            xtype: 'rallybutton',
+            text: 'Create Story',
+            margin: '0 10 0 10',
+            cls: 'primary',
+            listeners: {
+                click: me._createUserStories,
+                scope: me
+            }
+        });
+
     },
     getSelectorBox: function(){
         return this.down('#selector_box');
@@ -83,7 +120,7 @@ Ext.define("TSApp", {
     getScopedStateId: function (suffix) {
         return this.getContext().getScopedStateId(this.getStateId(suffix));
     },    
-    showNoData: function(msg){
+    showMsg: function(msg){
 
         if (!msg){
             msg = 'No data found for the selected item.';
@@ -95,12 +132,43 @@ Ext.define("TSApp", {
         });
     },
 
+
+    _createUserStories: function(){
+        //Create a US record, specifying initial values in the constructor
+        var me = this;
+        console.log('Release>>',me.getSetting('defaultRelease'))
+        var userSotryRec = {
+            Name: me.down('#userStoryName').value,
+            ScheduleState:'Defined',
+            Project:me.getContext().get('project'),
+            Release:me.getSetting('defaultRelease'),
+            Owner:me.getContext().get('user'),
+        }
+
+        var record = Ext.create(me.model, userSotryRec);
+
+        record.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    //Get the new stories formatted id
+                    var formattedId = result.get('FormattedID');
+                    //Display success msg
+                    me.showMsg("User Story Created."+formattedId);
+                    me.updateView();
+                }
+            },
+            scope:me
+        });
+
+    },
+
+
     updateView: function(){
         var me = this;
         var pi = me.getPortfolioItem();
         me.logger.log('updateView', pi);
         if (!pi ){
-            me.showNoData("Please select a portfolio item.");
+            me.showMsg("Please select a portfolio item.");
             return;
         }
 
@@ -175,6 +243,10 @@ Ext.define("TSApp", {
                 //showAge: this.getSetting('showCardAge') ? this.getSetting('cardAgeThreshold') : -1,
                 showBlockedReason: true
             },
+            rowConfig: {
+                field: 'Release',
+                enableCrossRowDragging:true
+            },            
             storeConfig: {
                 context: this.getContext().getDataContext()
             },                     
@@ -255,6 +327,12 @@ Ext.define("TSApp", {
     
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
-    }
+    },
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }    
     
 });
