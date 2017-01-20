@@ -18,7 +18,7 @@ Ext.define("TSApp", {
             selectorType: ''    
         }
     },    
-    
+
     getSettingsFields: function() {
         var me = this;
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
@@ -31,10 +31,12 @@ Ext.define("TSApp", {
                 readyEvent: 'ready'
             },
             {
-                name: 'defaultRelease',
-                fieldLabel: 'Select Default',
-                xtype: 'rallyreleasecombobox',
-                readyEvent: 'ready'
+                xtype: 'rallyfieldpicker',
+                name: 'columnNames',
+                autoExpand: true,
+                modelTypes: ['HierarchicalRequirement'],
+                alwaysSelectedValues: ['FormattedID','Name'],
+                fieldBlackList: ['Attachments','Children','PredecessorsAndSuccessors','Dependencies']
             }            
             ];
         return settings;
@@ -42,17 +44,83 @@ Ext.define("TSApp", {
 
     launch: function() {
         var me = this;
+        console.log('Lauching..');
+        Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel('PortfolioItem/Feature'),me._getReleases()],me).then({
+            scope: me,
+            success: function(results) {
+                me.storyModel = results[0];
+                me.featureModel = results[1];
+                me.releases = results[2];
+                me.addPickers();
+            },
+            failure: function(error_message){
+                alert(error_message);
+            }
+        }).always(function() {
+            me.setLoading(false);
+        });
+
+        // Rally.data.ModelFactory.getModel({
+        //     type: 'HierarchicalRequirement',
+        //     success: function(model){
+        //         me.storyModel = model;
+        //         Rally.data.ModelFactory.getModel({
+        //             type: 'PortfolioItem/Feature',
+        //             success: function(model){
+        //                 me.featureModel = model;
+        //                 me.addPickers();
+        //             },
+        //             scope: me
+        //         });
+        //     },
+        //     scope: me
+        // });
+    },
+    
+    _getReleases: function(){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+         
+        Ext.create('Rally.data.wsapi.Store', {
+            model: 'Release',
+            fetch: ['Name','ObjectID','Project','ReleaseDate'],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false            
+            },
+            limit: 'Infinity',
+            sorters: [{
+                property: 'ReleaseDate',
+                direction: 'DESC'
+            }]
+        }).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    _getModel: function(modelType){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
 
         Rally.data.ModelFactory.getModel({
-            type: 'HierarchicalRequirement',
+            type: modelType, //'HierarchicalRequirement',
             success: function(model){
-                me.model = model;
-                me.addPickers();
+                deferred.resolve(model);
             },
             scope: me
         });
+
+        return deferred.promise;
     },
-      
+
     addPickers: function(){
         var me = this;
 
@@ -60,17 +128,32 @@ Ext.define("TSApp", {
 
         me.getSelectorBox().add({
             xtype: 'rallyartifactsearchcombobox',
-            width: 500,
+            width: 200,
             labelWidth: 100,
             fieldLabel: "Portfolio Item",
             labelAlign: 'right',
             remoteFilter: true,
             storeConfig: {
-                pageSize: 200,
+                pageSize: 300,
                 models: [me.getSetting('selectorType')],
                 context: {project: null}
             }
         });
+
+        me.getSelectorBox().add({
+            xtype:'rallycombobox',
+            fieldLabel: 'Releases',
+            itemId: 'cbReleases',
+            margin: '0 10 0 10',
+            width: 200,
+            labelAlign: 'right',
+            store: Ext.create('Rally.data.custom.Store',{
+                data: _.map(me.releases, function(i){ return {_refObjectName: i.get('_refObjectName'), _ref: i.get('_ref')}; }),
+                fields: ['_refObjectName','_ref']
+            }),
+            multiSelect: true
+        });
+
 
         me.getSelectorBox().add({
                 xtype: 'rallybutton',
@@ -84,13 +167,32 @@ Ext.define("TSApp", {
 
         me.getSelectorBox().add({
                 xtype: 'textfield',
-                itemId:'userStoryName',
-                name: 'name',
-                fieldLabel: 'User Story Name',
-                width:400,
+                itemId:'featureName',
+                name: 'featureName',
+                fieldLabel: 'Feature Name',
+                width:300,
                 allowBlank: false  // requires a non-empty value
         });
 
+        me.getSelectorBox().add({
+            xtype: 'rallybutton',
+            text: 'Create Feature',
+            margin: '0 10 0 10',
+            cls: 'primary',
+            listeners: {
+                click: me._createFeatures,
+                scope: me
+            }
+        });
+
+        me.getSelectorBox().add({
+                xtype: 'textfield',
+                itemId:'userStoryName',
+                name: 'userStoryName',
+                fieldLabel: 'User Story Name',
+                width:300,
+                allowBlank: false  // requires a non-empty value
+        });
 
         me.getSelectorBox().add({
             xtype: 'rallybutton',
@@ -102,6 +204,8 @@ Ext.define("TSApp", {
                 scope: me
             }
         });
+
+
 
     },
     getSelectorBox: function(){
@@ -136,16 +240,14 @@ Ext.define("TSApp", {
     _createUserStories: function(){
         //Create a US record, specifying initial values in the constructor
         var me = this;
-        console.log('Release>>',me.getSetting('defaultRelease'))
         var userSotryRec = {
             Name: me.down('#userStoryName').value,
             ScheduleState:'Defined',
             Project:me.getContext().get('project'),
-            Release:me.getSetting('defaultRelease'),
             Owner:me.getContext().get('user'),
         }
 
-        var record = Ext.create(me.model, userSotryRec);
+        var record = Ext.create(me.storyModel, userSotryRec);
 
         record.save({
             callback: function(result, operation) {
@@ -162,9 +264,41 @@ Ext.define("TSApp", {
 
     },
 
+    _createFeatures: function(){
+        //Create a US record, specifying initial values in the constructor
+        var me = this;
+        var pi = me.getPortfolioItem();
+        if (!pi ){
+            me.showMsg("Please select a portfolio item.");
+            return;
+        }
+        var featureRec = {
+            Name: me.down('#featureName').value,
+            Project:me.getContext().get('project'),
+            Owner:me.getContext().get('user'),
+            Parent: pi.get('_ref')
+        }
+
+        var record = Ext.create(me.featureModel, featureRec);
+
+        record.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    //Get the new stories formatted id
+                    var formattedId = result.get('FormattedID');
+                    //Display success msg
+                    me.showMsg("Feature Created."+formattedId);
+                    me.updateView();
+                }
+            },
+            scope:me
+        });
+
+    },
 
     updateView: function(){
         var me = this;
+        me.setLoading("Loading...");
         var pi = me.getPortfolioItem();
         me.logger.log('updateView', pi);
         if (!pi ){
@@ -175,6 +309,11 @@ Ext.define("TSApp", {
         Ext.create('Rally.data.wsapi.Store', {
             model: 'PortfolioItem/Feature',
             autoLoad: true,
+            fetch: ['Name','FormattedID'],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false            
+            },              
             filters: [
                 {
                     property: 'Parent',
@@ -182,14 +321,15 @@ Ext.define("TSApp", {
                 }
             ],
             listeners: {
-                load: me._onTeamMembersLoaded,
+                load: me._getFeaturesAsColumns,
                 scope: me
             }
         });
 
     },
 
-    _onTeamMembersLoaded: function(store, records) {
+    _getFeaturesAsColumns: function(store, records) {
+        var me = this;
         var columns = [
             {
                 value: null,
@@ -203,7 +343,7 @@ Ext.define("TSApp", {
             columns.push({
                 value: record.getRef().getRelativeUri(),
                 columnHeaderConfig: {
-                    headerData: {Feature: record.get('_refObjectName')}
+                    headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName')}
                 }
             });
         });
@@ -216,48 +356,78 @@ Ext.define("TSApp", {
 
         me.getDisplayBox().removeAll();
 
+        var releases = this.down('#cbReleases').getValue() || [];
+
+        var releaseFilters = [{property:'Release',value:null}];
+
+        var storeConfig = {
+                context: this.getContext().getDataContext(),
+                fetch: me._getAlwaysSelectedFields(),
+                context: {
+                    projectScopeUp: false,
+                    projectScopeDown: false            
+                },
+                limit: 'Infinity'
+            }
+
+        if(0 < releases.length){
+            Ext.Array.each(releases, function(rel){
+                releaseFilters.push({property:'Release',value:rel});
+            });
+            storeConfig['filters'] = Rally.data.wsapi.Filter.or(releaseFilters);           
+        }
+
+        var rowReleases = Ext.Array.map( me.releases, function(record) { return record.getData(); });
+
         me.getDisplayBox().add({
             xtype: 'rallycardboard',
-            types: ['User Story'],
-            attribute: 'Feature',
+            itemId: 'storyCardBoard',
+            types: ['HierarchicalRequirement'],
+            attribute: 'PortfolioItem',
             plugins: [
-                //{ptype: 'rallycardboardprinting', pluginId: 'print'},
-                //'rallygridboardaddnew',
-                // {
-                //     ptype: 'rallygridboardfieldpicker',
-                //     headerPosition: 'left',
-                //     modelNames: ['HierarchicalRequirement'],
-                //     stateful: true,
-                //     stateId: context.getScopedStateId('columns-example')
-                // },
                 {
                     ptype: 'rallyscrollablecardboard',
                     containerEl: this.getEl()
                 }           
-                // ,
-                // {ptype: 'rallyfixedheadercardboard'}
             ],
             cardConfig: {
                 editable: true,
                 showIconMenus: true,
+                fields: me._getAlwaysSelectedFields(),
                 //showAge: this.getSetting('showCardAge') ? this.getSetting('cardAgeThreshold') : -1,
                 showBlockedReason: true
             },
             rowConfig: {
                 field: 'Release',
-                enableCrossRowDragging:true
+                //values: rowReleases,
+                enableCrossRowDragging: true
             },            
-            storeConfig: {
-                context: this.getContext().getDataContext()
-            },                     
+            storeConfig: storeConfig,                     
             context: me.getContext(),
             columnConfig: {
                 columnHeaderConfig: {
                     headerTpl: '{Feature}'
                 }
             },
+            loadMask: 'Loading!',
             columns: columns
         });
+        me.setLoading(false);
+    },
+
+    _getAlwaysSelectedFields: function() {
+        var columns = this.getSetting('columnNames') ;
+                
+        if ( Ext.isEmpty(columns) ) {
+            return [];
+        }
+        
+        if ( Ext.isString(columns) ) {
+            return columns.split(',');
+        }
+        
+        // console.log('_getAlwaysSelectedFields',columns);
+        return Ext.Array.unique( columns );
     },
 
     _loadWsapiRecords: function(config){
@@ -301,7 +471,7 @@ Ext.define("TSApp", {
         });
         return deferred.promise;
     },
-    
+
     _displayGrid: function(store,field_names){
         this.down('#display_box').add({
             xtype: 'rallygrid',
