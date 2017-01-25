@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 20 2017 15:46:09 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 24 2017 16:36:42 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 20 2017 15:46:09 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Tue Jan 24 2017 16:36:42 GMT-0800 (PST)";
         var STORY    = "US951";
         var BUILDER  = "arajaraman";
-        var CHECKSUM = 8768796502;
+        var CHECKSUM = 9030755764;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -217,7 +217,7 @@ Ext.define("TSApp", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
-        {xtype:'container',itemId:'selector_box', layout: 'hbox'},
+        {xtype:'container',itemId:'selector_box'},
         {xtype:'container',itemId:'display_box'}
     ],
 
@@ -248,7 +248,7 @@ Ext.define("TSApp", {
                 autoExpand: true,
                 modelTypes: ['HierarchicalRequirement'],
                 alwaysSelectedValues: ['FormattedID','Name'],
-                fieldBlackList: ['Attachments','Children','PredecessorsAndSuccessors','Dependencies']
+                fieldBlackList: ['Attachments','Children']
             }            
             ];
         return settings;
@@ -338,10 +338,12 @@ Ext.define("TSApp", {
 
         me.getSelectorBox().removeAll();
 
-        me.getSelectorBox().add({
+        me.getSelectorBox().add({xtype:'container',itemId:'row_1', layout: {type: 'hbox'}},
+                                {xtype:'container',itemId:'row_2',layout: {type: 'hbox'}});
+        me.getContainer('#row_1').add({
             xtype: 'rallyartifactsearchcombobox',
-            width: 200,
-            labelWidth: 100,
+            width: 300,
+            margin: '10 10 10 10',
             fieldLabel: "Portfolio Item",
             labelAlign: 'right',
             remoteFilter: true,
@@ -352,12 +354,12 @@ Ext.define("TSApp", {
             }
         });
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_1').add({
             xtype:'rallycombobox',
             fieldLabel: 'Releases',
             itemId: 'cbReleases',
-            margin: '0 10 0 10',
-            width: 200,
+            margin: '10 10 10 10',
+            width: 300,
             labelAlign: 'right',
             store: Ext.create('Rally.data.custom.Store',{
                 data: _.map(me.releases, function(i){ return {_refObjectName: i.get('_refObjectName'), _ref: i.get('_ref')}; }),
@@ -367,29 +369,30 @@ Ext.define("TSApp", {
         });
 
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_1').add({
                 xtype: 'rallybutton',
                 text: 'Update',
-                margin: '0 10 0 10',
+                margin: '10 10 10 10',
                 listeners: {
                     click: this.updateView,
                     scope: this
                 }
             });
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_2').add({
                 xtype: 'textfield',
                 itemId:'featureName',
                 name: 'featureName',
                 fieldLabel: 'Feature Name',
+                margin: '10 10 10 10',
                 width:300,
                 allowBlank: false  // requires a non-empty value
         });
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_2').add({
             xtype: 'rallybutton',
             text: 'Create Feature',
-            margin: '0 10 0 10',
+            margin: '10 10 10 10',
             cls: 'primary',
             listeners: {
                 click: me._createFeatures,
@@ -397,19 +400,20 @@ Ext.define("TSApp", {
             }
         });
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_2').add({
                 xtype: 'textfield',
                 itemId:'userStoryName',
                 name: 'userStoryName',
                 fieldLabel: 'User Story Name',
+                margin: '10 10 10 10',
                 width:300,
                 allowBlank: false  // requires a non-empty value
         });
 
-        me.getSelectorBox().add({
+        me.getContainer('#row_2').add({
             xtype: 'rallybutton',
             text: 'Create Story',
-            margin: '0 10 0 10',
+            margin: '10 10 10 10',
             cls: 'primary',
             listeners: {
                 click: me._createUserStories,
@@ -423,6 +427,10 @@ Ext.define("TSApp", {
     getSelectorBox: function(){
         return this.down('#selector_box');
     },
+    getContainer: function(name){
+        return this.down(name);
+    },
+
     getDisplayBox: function(){
         return this.down('#display_box');
     },
@@ -611,7 +619,7 @@ Ext.define("TSApp", {
             },
             rowConfig: {
                 field: 'Release',
-                //values: rowReleases,
+                values: rowReleases,
                 enableCrossRowDragging: true
             },            
             storeConfig: storeConfig,                     
