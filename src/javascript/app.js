@@ -304,11 +304,14 @@ Ext.define("TSApp", {
 
         var me = this;
         if (me.dialog){me.dialog.destroy();}
+        
+        var dTitle = 'Create a New Story for ' + record.get('Name');
+
         me.dialog = Ext.create('Rally.ui.dialog.Dialog',{
             defaults: { padding: 5, margin: 20 },
             closable: true,
             draggable: true,
-            title: 'Create a New Story',
+            title: dTitle,
             items: [
                     {
                             xtype: 'textfield',

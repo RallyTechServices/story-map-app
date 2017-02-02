@@ -14,6 +14,8 @@ You will be able to choose the 2nd Level PI Type and the fields that should appe
 
 ![ScreenShot](images/ss2.png)
 
+![ScreenShot](images/ss3.png)
+
 ####Steps to install the Application
  1. On your dashboard, click on the gear to add an app.
  2. Choose "Custom HTML" from the App Catalog. Add the app.
