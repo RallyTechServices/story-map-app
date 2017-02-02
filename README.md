@@ -1,3 +1,37 @@
+#Story Map App
+
+This application lets the user query all the User Stories that belongs to a specific 2nd Level PI and a set of Releases.
+- Lets the user to choose the 2nd Level PI type on app settings. 
+- Lists all User Stories that belongs to a specific 2nd Level PI and a set of Releases on a cardboard 
+- The column represents the Feature that the Story belongs to.
+- Includes Release Swimlanes
+- Lets user create a Feature
+- Lets user create a Story under a specific feature using the Add Story Button.
+
+![ScreenShot](images/ss1.png)
+
+You will be able to choose the 2nd Level PI Type and the fields that should appear on the card.
+
+![ScreenShot](images/ss2.png)
+
+![ScreenShot](images/ss3.png)
+
+####Steps to install the Application
+ 1. On your dashboard, click on the gear to add an app.
+ 2. Choose "Custom HTML" from the App Catalog. Add the app.
+ 3. Paste the code to HTML text area from the link - https://raw.githubusercontent.com/RallyTechServices/story-map-app/master/deploy/App.txt
+ 4. Click Save.
+
+
+####Steps to get started:
+ 1. Once the application is installed, click on the gear on top right corner of the app to open App Settings and choose the 2nd Level PI Type and the fields that should appear on the card.
+ 2. Save app settings.
+ 3. Select a PI.
+ 4. Select Releases and Click Update.
+ 5. Type in a Feature name and click on Create Feature.
+ 6. Click on Add Story to add a story under each Feature.
+
+
 #Technical Services App
 
 ## Development Notes
