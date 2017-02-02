@@ -5,7 +5,11 @@ Ext.define("TSApp", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
-        {xtype:'container',itemId:'selector_box'},
+        {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
+            width: '100pct'
+            // ,
+            // style: {borderColor:'#000000', borderStyle:'solid', borderWidth:'1px'}
+        },
         {xtype:'container',itemId:'display_box'}
     ],
 
@@ -59,22 +63,6 @@ Ext.define("TSApp", {
         }).always(function() {
             me.setLoading(false);
         });
-
-        // Rally.data.ModelFactory.getModel({
-        //     type: 'HierarchicalRequirement',
-        //     success: function(model){
-        //         me.storyModel = model;
-        //         Rally.data.ModelFactory.getModel({
-        //             type: 'PortfolioItem/Feature',
-        //             success: function(model){
-        //                 me.featureModel = model;
-        //                 me.addPickers();
-        //             },
-        //             scope: me
-        //         });
-        //     },
-        //     scope: me
-        // });
     },
     
     _getReleases: function(){
@@ -126,8 +114,8 @@ Ext.define("TSApp", {
 
         me.getSelectorBox().removeAll();
 
-        me.getSelectorBox().add({xtype:'container',itemId:'row_1', layout: {type: 'hbox'}},
-                                {xtype:'container',itemId:'row_2',layout: {type: 'hbox'}});
+        me.getSelectorBox().add({xtype:'panel',itemId:'row_1', bodyPadding: 5,  width: '50%', height: 150, title: 'Display Board'},
+                                {xtype:'panel',itemId:'row_2', bodyPadding: 5,  width: '50%', height: 150, title: 'Create Feature'});
         me.getContainer('#row_1').add({
             xtype: 'rallyartifactsearchcombobox',
             width: 300,
@@ -161,8 +149,9 @@ Ext.define("TSApp", {
                 xtype: 'rallybutton',
                 text: 'Update',
                 margin: '10 10 10 10',
+                defaultAlign: 'right',
                 listeners: {
-                    click: this.updateView,
+                    click: this._updateView,
                     scope: this
                 }
             });
@@ -188,29 +177,6 @@ Ext.define("TSApp", {
             }
         });
 
-        me.getContainer('#row_2').add({
-                xtype: 'textfield',
-                itemId:'userStoryName',
-                name: 'userStoryName',
-                fieldLabel: 'User Story Name',
-                margin: '10 10 10 10',
-                width:300,
-                allowBlank: false  // requires a non-empty value
-        });
-
-        me.getContainer('#row_2').add({
-            xtype: 'rallybutton',
-            text: 'Create Story',
-            margin: '10 10 10 10',
-            cls: 'primary',
-            listeners: {
-                click: me._createUserStories,
-                scope: me
-            }
-        });
-
-
-
     },
     getSelectorBox: function(){
         return this.down('#selector_box');
@@ -233,7 +199,7 @@ Ext.define("TSApp", {
         return this.getContext().getScopedStateId(this.getStateId(suffix));
     },    
     showMsg: function(msg){
-
+        this.getDisplayBox().removeAll();
         if (!msg){
             msg = 'No data found for the selected item.';
         }
@@ -245,14 +211,139 @@ Ext.define("TSApp", {
     },
 
 
-    _createUserStories: function(){
+    _updateView: function(){
+        var me = this;
+        var pi = me.getPortfolioItem();
+        me.logger.log('_updateView', pi);
+
+        var releases = this.down('#cbReleases').getValue() || [];
+
+        if (!pi || releases.length < 1){
+            me.showMsg("Please select a portfolio item and releases");
+            return;
+        }
+
+        
+        if (!pi ){
+            me.showMsg("Please select a portfolio item.");
+            return;
+        }
+        me.setLoading("Loading...");
+
+        Ext.create('Rally.data.wsapi.Store', {
+            model: 'PortfolioItem/Feature',
+            autoLoad: true,
+            fetch: ['Name','FormattedID'],
+            context: {
+                projectScopeUp: false,
+                projectScopeDown: false            
+            },              
+            filters: [
+                {
+                    property: 'Parent',
+                    value: pi.get('_ref')
+                }
+            ],
+            listeners: {
+                load: me._getFeaturesAsColumns,
+                scope: me
+            }
+        });
+
+    },
+
+    _getFeaturesAsColumns: function(store, records) {
+        var me = this;
+
+        if(records.length < 1){
+            me.showMsg("No records for selected crieria");
+            me.setLoading(false);
+            return;
+        }
+        var columns = [
+            // {
+            //     value: null,
+            //     columnHeaderConfig: {
+            //         headerData: {Feature: 'No Feature'}
+            //     }
+            // }
+        ];
+
+        _.each(records, function(record) {
+            columns.push({
+                value: record.getRef().getRelativeUri(),
+                columnHeaderConfig: {
+                    headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
+                }
+            });
+        });
+
+        me._addBoard(columns);
+    },
+
+
+    _getAddStoryButton: function(record){
+        var me = this;
+        var id = Ext.id();
+        Ext.defer(function () {
+            Ext.widget('button', {
+                renderTo: id,
+                text: 'Add Story',
+                scope: this,
+                cls: 'request-button',
+                handler: function () {
+                    me._createStoryDialog(record);
+                }
+            });
+        }, 300, this);
+        return Ext.String.format('<div id="{0}"></div>', id);
+    },
+
+
+    _createStoryDialog: function(record){
+
+        var me = this;
+        if (me.dialog){me.dialog.destroy();}
+        me.dialog = Ext.create('Rally.ui.dialog.Dialog',{
+            defaults: { padding: 5, margin: 20 },
+            closable: true,
+            draggable: true,
+            title: 'Create a New Story',
+            items: [
+                    {
+                            xtype: 'textfield',
+                            itemId:'userStoryName',
+                            name: 'userStoryName',
+                            fieldLabel: 'User Story Name',
+                            margin: '10 10 10 10',
+                            width:300,
+                            allowBlank: false  // requires a non-empty value
+                    },
+                    {
+                        xtype: 'rallybutton',
+                        text: 'Create Story',
+                        margin: '10 10 10 10',
+                        cls: 'primary',
+                        listeners: {
+                            click: function(){
+                                return me._createUserStories(record);
+                            },
+                            scope: me
+                        }
+                    }]
+        });
+        me.dialog.show();
+    },
+
+    _createUserStories: function(record){
         //Create a US record, specifying initial values in the constructor
         var me = this;
         var userSotryRec = {
-            Name: me.down('#userStoryName').value,
+            Name: me.dialog ? me.dialog.down('#userStoryName').value:'',
             ScheduleState:'Defined',
             Project:me.getContext().get('project'),
             Owner:me.getContext().get('user'),
+            PortfolioItem:record.get('_ref')
         }
 
         var record = Ext.create(me.storyModel, userSotryRec);
@@ -264,7 +355,8 @@ Ext.define("TSApp", {
                     var formattedId = result.get('FormattedID');
                     //Display success msg
                     me.showMsg("User Story Created."+formattedId);
-                    me.updateView();
+                    if(me.dialog) {me.dialog.destroy();}
+                    me._updateView();
                 }
             },
             scope:me
@@ -296,67 +388,12 @@ Ext.define("TSApp", {
                     var formattedId = result.get('FormattedID');
                     //Display success msg
                     me.showMsg("Feature Created."+formattedId);
-                    me.updateView();
+                    me._updateView();
                 }
             },
             scope:me
         });
 
-    },
-
-    updateView: function(){
-        var me = this;
-        me.setLoading("Loading...");
-        var pi = me.getPortfolioItem();
-        me.logger.log('updateView', pi);
-        if (!pi ){
-            me.showMsg("Please select a portfolio item.");
-            return;
-        }
-
-        Ext.create('Rally.data.wsapi.Store', {
-            model: 'PortfolioItem/Feature',
-            autoLoad: true,
-            fetch: ['Name','FormattedID'],
-            context: {
-                projectScopeUp: false,
-                projectScopeDown: false            
-            },              
-            filters: [
-                {
-                    property: 'Parent',
-                    value: pi.get('_ref')
-                }
-            ],
-            listeners: {
-                load: me._getFeaturesAsColumns,
-                scope: me
-            }
-        });
-
-    },
-
-    _getFeaturesAsColumns: function(store, records) {
-        var me = this;
-        var columns = [
-            {
-                value: null,
-                columnHeaderConfig: {
-                    headerData: {Feature: 'No Feature'}
-                }
-            }
-        ];
-
-        _.each(records, function(record) {
-            columns.push({
-                value: record.getRef().getRelativeUri(),
-                columnHeaderConfig: {
-                    headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName')}
-                }
-            });
-        });
-
-        this._addBoard(columns);
     },
 
     _addBoard: function(columns) {
@@ -367,6 +404,9 @@ Ext.define("TSApp", {
         var releases = this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
+        
+        var rowReleaseRecords = [];
+
 
         var storeConfig = {
                 context: this.getContext().getDataContext(),
@@ -382,12 +422,18 @@ Ext.define("TSApp", {
             Ext.Array.each(releases, function(rel){
                 releaseFilters.push({property:'Release',value:rel});
             });
-            storeConfig['filters'] = Rally.data.wsapi.Filter.or(releaseFilters);           
+            storeConfig['filters'] = Rally.data.wsapi.Filter.or(releaseFilters);
+
+            Ext.Array.each( me.releases, function(record) {
+                if(Ext.Array.contains(releases, record.get('_ref'))){
+                    rowReleaseRecords.push(record.getData()); 
+                }
+            });                       
+        }else{
+            rowReleaseRecords.push(null);
         }
 
-        var rowReleases = Ext.Array.map( me.releases, function(record) { return record.getData(); });
-
-        me.getDisplayBox().add({
+        me.getDisplayBox().add({        
             xtype: 'rallycardboard',
             itemId: 'storyCardBoard',
             types: ['HierarchicalRequirement'],
@@ -407,7 +453,7 @@ Ext.define("TSApp", {
             },
             rowConfig: {
                 field: 'Release',
-                values: rowReleases,
+                values: rowReleaseRecords,
                 enableCrossRowDragging: true
             },            
             storeConfig: storeConfig,                     
