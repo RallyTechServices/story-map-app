@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 01 2017 16:29:10 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Feb 07 2017 15:58:20 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 01 2017 16:29:10 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Tue Feb 07 2017 15:58:20 GMT-0800 (PST)";
         var STORY    = "US951";
         var BUILDER  = "arajaraman";
-        var CHECKSUM = 10299245723;
+        var CHECKSUM = 10188245080;
     </script>
     
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -219,8 +219,6 @@ Ext.define("TSApp", {
     items: [
         {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
             width: '100pct'
-            // ,
-            // style: {borderColor:'#000000', borderStyle:'solid', borderWidth:'1px'}
         },
         {xtype:'container',itemId:'display_box'}
     ],
@@ -260,12 +258,50 @@ Ext.define("TSApp", {
 
     launch: function() {
         var me = this;
+
         console.log('Lauching..');
         Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel('PortfolioItem/Feature'),me._getReleases()],me).then({
             scope: me,
             success: function(results) {
                 me.storyModel = results[0];
+                var scheduleStateField = results[0].getField('ScheduleState');
+                scheduleStateField.getAllowedValueStore().load({
+                    fetch: ['StringValue'],
+                    callback: function(allowedValues, operation, success){
+                        if (success){
+                            var values = _.map(allowedValues, function(av){return av.get('StringValue')});
+                            var i = 0;
+                            me.logger.log('AllowedValues ', values);
+                            me.scheduleStateFieldInitialValue = values[0];
+                           
+                        } else {
+                            var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
+                            Rally.ui.notify.Notifier.showError({message: msg});
+                        }
+                    },
+                    scope: me
+                });
+
+
                 me.featureModel = results[1];
+                var stateField = results[1].getField('State');
+                stateField.getAllowedValueStore().load({
+                    fetch: ['StringValue'],
+                    callback: function(allowedValues, operation, success){
+                        if (success){
+                            var values = _.map(allowedValues, function(av){return av.get('StringValue')});
+                            var i = 0;
+                            me.logger.log('AllowedValues ', values);
+                            me.stateFieldInitialValue = values[0];
+                           
+                        } else {
+                            var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
+                            Rally.ui.notify.Notifier.showError({message: msg});
+                        }
+                    },
+                    scope: me
+                });
+
                 me.releases = results[2];
                 me.addPickers();
             },
@@ -299,7 +335,7 @@ Ext.define("TSApp", {
                     deferred.resolve(records);
                 } else {
                     me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                    //deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
                 }
             }
         });
@@ -323,11 +359,18 @@ Ext.define("TSApp", {
 
     addPickers: function(){
         var me = this;
+        
+        var releaseCombo = [];
+
+        Ext.Array.each(me.releases, function(rel){
+            releaseCombo.push({_refObjectName: rel.get('_refObjectName'), _ref: rel.get('_ref')});
+        });
 
         me.getSelectorBox().removeAll();
 
         me.getSelectorBox().add({xtype:'panel',itemId:'row_1', bodyPadding: 5,  width: '50%', height: 150, title: 'Display Board'},
                                 {xtype:'panel',itemId:'row_2', bodyPadding: 5,  width: '50%', height: 150, title: 'Create Feature'});
+
         me.getContainer('#row_1').add({
             xtype: 'rallyartifactsearchcombobox',
             width: 300,
@@ -350,7 +393,7 @@ Ext.define("TSApp", {
             width: 300,
             labelAlign: 'right',
             store: Ext.create('Rally.data.custom.Store',{
-                data: _.map(me.releases, function(i){ return {_refObjectName: i.get('_refObjectName'), _ref: i.get('_ref')}; }),
+                data: releaseCombo,
                 fields: ['_refObjectName','_ref']
             }),
             multiSelect: true
@@ -555,7 +598,7 @@ Ext.define("TSApp", {
         var me = this;
         var userSotryRec = {
             Name: me.dialog ? me.dialog.down('#userStoryName').value:'',
-            ScheduleState:'Defined',
+            ScheduleState: me.scheduleStateFieldInitialValue,
             Project:me.getContext().get('project'),
             Owner:me.getContext().get('user'),
             PortfolioItem:record.get('_ref')
@@ -591,7 +634,8 @@ Ext.define("TSApp", {
             Name: me.down('#featureName').value,
             Project:me.getContext().get('project'),
             Owner:me.getContext().get('user'),
-            Parent: pi.get('_ref')
+            Parent: pi.get('_ref'),
+            State: me.stateFieldInitialValue
         }
 
         var record = Ext.create(me.featureModel, featureRec);
@@ -699,56 +743,6 @@ Ext.define("TSApp", {
         return Ext.Array.unique( columns );
     },
 
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        this.logger.log("Starting load:",config.model);
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-
-    _loadAStoreWithAPromise: function(model_name, model_fields){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        this.logger.log("Starting load:",model_name,model_fields);
-          
-        Ext.create('Rally.data.wsapi.Store', {
-            model: model_name,
-            fetch: model_fields
-        }).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(this);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-
-    _displayGrid: function(store,field_names){
-        this.down('#display_box').add({
-            xtype: 'rallygrid',
-            store: store,
-            columnCfgs: field_names
-        });
-    },
-    
     getOptions: function() {
         return [
             {
