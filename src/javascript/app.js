@@ -48,7 +48,7 @@ Ext.define("TSApp", {
         var me = this;
 
         console.log('Lauching..');
-        Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel('PortfolioItem/Feature'),me._getReleases()],me).then({
+        Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel('PortfolioItem/Feature'),me._getReleases(),me._getModel('State')],me).then({
             scope: me,
             success: function(results) {
                 me.storyModel = results[0];
@@ -60,7 +60,7 @@ Ext.define("TSApp", {
                             var values = _.map(allowedValues, function(av){return av.get('StringValue')});
                             var i = 0;
                             me.logger.log('AllowedValues ', values);
-                            me.scheduleStateFieldInitialValue = values[0];
+                            me.scheduleStateFieldInitialValue = values[0] == "" ?  values[1]:values[0];
                            
                         } else {
                             var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
@@ -77,10 +77,10 @@ Ext.define("TSApp", {
                     fetch: ['StringValue'],
                     callback: function(allowedValues, operation, success){
                         if (success){
-                            var values = _.map(allowedValues, function(av){return av.get('StringValue')});
+                            var values = _.map(allowedValues, function(av){return av.get('_ref')});
                             var i = 0;
                             me.logger.log('AllowedValues ', values);
-                            me.stateFieldInitialValue = values[0];
+                            me.stateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
                            
                         } else {
                             var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
@@ -91,6 +91,7 @@ Ext.define("TSApp", {
                 });
 
                 me.releases = results[2];
+                me.stateModel = results[3];
                 me.addPickers();
             },
             failure: function(error_message){
@@ -182,7 +183,8 @@ Ext.define("TSApp", {
             labelAlign: 'right',
             store: Ext.create('Rally.data.custom.Store',{
                 data: releaseCombo,
-                fields: ['_refObjectName','_ref']
+                fields: ['_refObjectName','_ref'],
+                pageSize:2000
             }),
             multiSelect: true
         });
@@ -418,9 +420,11 @@ Ext.define("TSApp", {
             me.showMsg("Please select a portfolio item.");
             return;
         }
+        var stateRecord = Ext.create(me.stateModel, {Name: 'Backlog'});
+
         var featureRec = {
             Name: me.down('#featureName').value,
-            Project:me.getContext().get('project'),
+            Project:me.getContext().get('project'), 
             Owner:me.getContext().get('user'),
             Parent: pi.get('_ref'),
             State: me.stateFieldInitialValue
