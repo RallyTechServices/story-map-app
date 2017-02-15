@@ -17,21 +17,13 @@ Ext.define("TSApp", {
 
     config: {
         defaultSettings: {
-            selectorType: ''    
         }
     },    
 
     getSettingsFields: function() {
         var me = this;
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
-        var settings = [{
-                name: 'selectorType',
-                fieldLabel: 'Select 2nd Level PI',
-                xtype: 'rallyportfolioitemtypecombobox',
-                displayField: 'DisplayName',
-                valueField: 'TypePath',
-                readyEvent: 'ready'
-            },
+        var settings = [
             {
                 xtype: 'rallyfieldpicker',
                 name: 'columnNames',
@@ -47,61 +39,95 @@ Ext.define("TSApp", {
     launch: function() {
         var me = this;
 
-        console.log('Lauching..');
-        Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel('PortfolioItem/Feature'),me._getReleases(),me._getModel('State')],me).then({
-            scope: me,
-            success: function(results) {
-                me.storyModel = results[0];
-                var scheduleStateField = results[0].getField('ScheduleState');
-                scheduleStateField.getAllowedValueStore().load({
-                    fetch: ['StringValue'],
-                    callback: function(allowedValues, operation, success){
-                        if (success){
-                            var values = _.map(allowedValues, function(av){return av.get('StringValue')});
-                            var i = 0;
-                            me.logger.log('AllowedValues ', values);
-                            me.scheduleStateFieldInitialValue = values[0] == "" ?  values[1]:values[0];
-                           
-                        } else {
-                            var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
-                            Rally.ui.notify.Notifier.showError({message: msg});
-                        }
+        me._getPITypes().then({
+            success: function(results){
+                Ext.Array.each(results, function(pi){
+                    if(pi.get('Ordinal')==0){
+                        me.featurePI = pi.get('TypePath');
+                    }
+                    if(pi.get('Ordinal')==1){
+                        me.secondLevelPI = pi.get('TypePath');
+                    }                    
+                });
+
+                Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel(me.featurePI),me._getReleases(),me._getModel('State')],me).then({
+                    scope: me,
+                    success: function(results) {
+                        me.storyModel = results[0];
+                        var scheduleStateField = results[0].getField('ScheduleState');
+                        scheduleStateField.getAllowedValueStore().load({
+                            fetch: ['StringValue'],
+                            callback: function(allowedValues, operation, success){
+                                if (success){
+                                    var values = _.map(allowedValues, function(av){return av.get('StringValue')});
+                                    var i = 0;
+                                    me.logger.log('AllowedValues ', values);
+                                    me.scheduleStateFieldInitialValue = values[0] == "" ?  values[1]:values[0];
+                                   
+                                } else {
+                                    var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
+                                    Rally.ui.notify.Notifier.showError({message: msg});
+                                }
+                            },
+                            scope: me
+                        });
+
+
+                        me.featureModel = results[1];
+                        var stateField = results[1].getField('State');
+                        stateField.getAllowedValueStore().load({
+                            fetch: ['StringValue'],
+                            callback: function(allowedValues, operation, success){
+                                if (success){
+                                    var values = _.map(allowedValues, function(av){return av.get('_ref')});
+                                    var i = 0;
+                                    me.logger.log('AllowedValues ', values);
+                                    me.stateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
+                                   
+                                } else {
+                                    var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
+                                    Rally.ui.notify.Notifier.showError({message: msg});
+                                }
+                            },
+                            scope: me
+                        });
+
+                        me.releases = results[2];
+                        me.stateModel = results[3];
+                        me.addPickers();
                     },
-                    scope: me
+                    failure: function(error_message){
+                        alert(error_message);
+                    }
+                }).always(function() {
+                    me.setLoading(false);
                 });
 
 
-                me.featureModel = results[1];
-                var stateField = results[1].getField('State');
-                stateField.getAllowedValueStore().load({
-                    fetch: ['StringValue'],
-                    callback: function(allowedValues, operation, success){
-                        if (success){
-                            var values = _.map(allowedValues, function(av){return av.get('_ref')});
-                            var i = 0;
-                            me.logger.log('AllowedValues ', values);
-                            me.stateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                           
-                        } else {
-                            var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
-                            Rally.ui.notify.Notifier.showError({message: msg});
-                        }
-                    },
-                    scope: me
-                });
-
-                me.releases = results[2];
-                me.stateModel = results[3];
-                me.addPickers();
-            },
-            failure: function(error_message){
-                alert(error_message);
             }
-        }).always(function() {
-            me.setLoading(false);
         });
+
+
     },
     
+    _getPITypes: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        Ext.create('Rally.data.wsapi.Store',{
+            autoLoad: true,
+            model: 'TypeDefinition',
+            sorters: [{property:'Ordinal', direction: 'DESC'}],
+            filters: [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}],
+            fetch: ['DisplayName', 'ElementName', 'TypePath', 'Parent', 'UserListable','Ordinal','Name'],
+            listeners: {
+                load: function(store, records) {
+                    deferred.resolve(records);
+                }
+            }
+        });
+        
+        return deferred.promise;
+    },
+
     _getReleases: function(){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -149,10 +175,14 @@ Ext.define("TSApp", {
     addPickers: function(){
         var me = this;
         
+        var releaseNames = [];
         var releaseCombo = [];
 
         Ext.Array.each(me.releases, function(rel){
-            releaseCombo.push({_refObjectName: rel.get('_refObjectName'), _ref: rel.get('_ref')});
+            if (!Ext.Array.contains(releaseNames, rel.get('_refObjectName'))){
+                releaseNames.push(rel.get('_refObjectName'));
+                releaseCombo.push({_refObjectName: rel.get('_refObjectName'), _ref: rel.get('_refObjectName')});
+            }            
         });
 
         me.getSelectorBox().removeAll();
@@ -169,7 +199,7 @@ Ext.define("TSApp", {
             remoteFilter: true,
             storeConfig: {
                 pageSize: 300,
-                models: [me.getSetting('selectorType')],
+                models: [me.secondLevelPI],
                 context: {project: null}
             }
         });
@@ -188,6 +218,20 @@ Ext.define("TSApp", {
             }),
             multiSelect: true
         });
+
+        // me.getContainer('#row_1').add({
+        //     xtype: 'rallyfieldpicker',
+        //     name: 'columnNames',
+        //     itemId: 'columnNames',
+        //     fieldLabel: 'Choose Fields',
+        //     width: 250,
+        //     margin: '10 10 10 10',    
+        //     autoExpand: false,
+        //     alwaysExpanded: false,
+        //     modelTypes: ['HierarchicalRequirement'],
+        //     alwaysSelectedValues: ['FormattedID','Name'],
+        //     fieldBlackList: ['Attachments','Children']            
+        // });
 
 
         me.getContainer('#row_1').add({
@@ -276,7 +320,7 @@ Ext.define("TSApp", {
         me.setLoading("Loading...");
 
         Ext.create('Rally.data.wsapi.Store', {
-            model: 'PortfolioItem/Feature',
+            model: me.featurePI,
             autoLoad: true,
             fetch: ['Name','FormattedID'],
             context: {
@@ -471,12 +515,12 @@ Ext.define("TSApp", {
 
         if(0 < releases.length){
             Ext.Array.each(releases, function(rel){
-                releaseFilters.push({property:'Release',value:rel});
+                releaseFilters.push({property:'Release.Name',value:rel});
             });
             storeConfig['filters'] = Rally.data.wsapi.Filter.or(releaseFilters);
 
             Ext.Array.each( me.releases, function(record) {
-                if(Ext.Array.contains(releases, record.get('_ref'))){
+                if(Ext.Array.contains(releases, record.get('Name'))){
                     rowReleaseRecords.push(record.getData()); 
                 }
             });                       
@@ -514,72 +558,12 @@ Ext.define("TSApp", {
                     headerTpl: '{Feature}'
                 }
             },
-            // listeners: {
-            //     beforecarddroppedsave: me._onBeforeCardSaved,
-            //     scope: me
-            // },            
+           
             loadMask: 'Loading!',
             columns: columns
         });
         me.setLoading(false);
     },
-
-
-    _onBeforeCardSaved: function(column, card, type, sourceColumn) {
-        console.log('column, card, type, sourceColumn>>',column, card, type, sourceColumn,card.getRecord());
-
-        card.getRecord().set('Release',null);
-
-        // var applyModifiedFieldsInSameColumn = this.getSetting('applyModifiedFieldsInSameColumn');
-        // this.logger.log("Apply Modified Fields In Same Column", applyModifiedFieldsInSameColumn, this._isTruthLike(applyModifiedFieldsInSameColumn) );
-        
-        // if ( sourceColumn == column && ! this._isTruthLike(applyModifiedFieldsInSameColumn)) {
-        //     return true;
-        // }
-        // this.logger.log("--change values");
-        
-        // var columnSetting = this._getColumnSetting();
-        // var cardboardSetting = this.getSettings();
-
-        // var me = this;
-        
-        // if (columnSetting) {
-        //     var setting = columnSetting[column.getValue()];
-        //     if (setting && setting.scheduleStateMapping) {
-        //         card.getRecord().set('ScheduleState', setting.scheduleStateMapping);
-        //     }
-            
-        //     if (setting && setting.stateMapping && card.getRecord().get('_type') == 'defect') {
-        //         card.getRecord().set('State', setting.stateMapping);
-        //     }
-            
-        //     if (setting && setting.reasonMapping && card.getRecord().get('_type') == 'defect' ) {
-        //         card.getRecord().set(cardboardSetting.changeReasonField, setting.reasonMapping);
-        //     }
-        // }
-        
-        return true;
-        
-//        if (cardboardSetting && cardboardSetting.showChangeReasonPopup ) {
-//            card.getRecord().set(cardboardSetting.changeReasonField,null);
-//            Ext.create('Rally.ui.dialog.ChangeReasonDialog', {
-//                autoShow: true,
-//                draggable: true,
-//                width: 200,
-//                modal: true,
-//                dropdownField: cardboardSetting.changeReasonField,
-//                model: 'UserStory',
-//                listeners: {
-//                    scope: this,
-//                    valuechosen: function(dialog, selected_value) {
-//                        card.getRecord().set(cardboardSetting.changeReasonField,selected_value);
-//                        card.getRecord().save();
-//                    }
-//                }
-//            });
-//        }
-    },
-
 
 
     _getAlwaysSelectedFields: function() {
