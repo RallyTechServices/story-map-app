@@ -281,7 +281,7 @@ Ext.define("TSApp", {
             fetch: ['Name','FormattedID'],
             context: {
                 projectScopeUp: false,
-                projectScopeDown: false            
+                projectScopeDown: true            
             },              
             filters: [
                 {
@@ -464,7 +464,7 @@ Ext.define("TSApp", {
                 fetch: me._getAlwaysSelectedFields(),
                 context: {
                     projectScopeUp: false,
-                    projectScopeDown: false            
+                    projectScopeDown: true            
                 },
                 limit: 'Infinity'
             }
@@ -514,11 +514,73 @@ Ext.define("TSApp", {
                     headerTpl: '{Feature}'
                 }
             },
+            // listeners: {
+            //     beforecarddroppedsave: me._onBeforeCardSaved,
+            //     scope: me
+            // },            
             loadMask: 'Loading!',
             columns: columns
         });
         me.setLoading(false);
     },
+
+
+    _onBeforeCardSaved: function(column, card, type, sourceColumn) {
+        console.log('column, card, type, sourceColumn>>',column, card, type, sourceColumn,card.getRecord());
+
+        card.getRecord().set('Release',null);
+
+        // var applyModifiedFieldsInSameColumn = this.getSetting('applyModifiedFieldsInSameColumn');
+        // this.logger.log("Apply Modified Fields In Same Column", applyModifiedFieldsInSameColumn, this._isTruthLike(applyModifiedFieldsInSameColumn) );
+        
+        // if ( sourceColumn == column && ! this._isTruthLike(applyModifiedFieldsInSameColumn)) {
+        //     return true;
+        // }
+        // this.logger.log("--change values");
+        
+        // var columnSetting = this._getColumnSetting();
+        // var cardboardSetting = this.getSettings();
+
+        // var me = this;
+        
+        // if (columnSetting) {
+        //     var setting = columnSetting[column.getValue()];
+        //     if (setting && setting.scheduleStateMapping) {
+        //         card.getRecord().set('ScheduleState', setting.scheduleStateMapping);
+        //     }
+            
+        //     if (setting && setting.stateMapping && card.getRecord().get('_type') == 'defect') {
+        //         card.getRecord().set('State', setting.stateMapping);
+        //     }
+            
+        //     if (setting && setting.reasonMapping && card.getRecord().get('_type') == 'defect' ) {
+        //         card.getRecord().set(cardboardSetting.changeReasonField, setting.reasonMapping);
+        //     }
+        // }
+        
+        return true;
+        
+//        if (cardboardSetting && cardboardSetting.showChangeReasonPopup ) {
+//            card.getRecord().set(cardboardSetting.changeReasonField,null);
+//            Ext.create('Rally.ui.dialog.ChangeReasonDialog', {
+//                autoShow: true,
+//                draggable: true,
+//                width: 200,
+//                modal: true,
+//                dropdownField: cardboardSetting.changeReasonField,
+//                model: 'UserStory',
+//                listeners: {
+//                    scope: this,
+//                    valuechosen: function(dialog, selected_value) {
+//                        card.getRecord().set(cardboardSetting.changeReasonField,selected_value);
+//                        card.getRecord().save();
+//                    }
+//                }
+//            });
+//        }
+    },
+
+
 
     _getAlwaysSelectedFields: function() {
         var columns = this.getSetting('columnNames') ;
