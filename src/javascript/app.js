@@ -1,4 +1,4 @@
-Ext.define("TSApp", {
+Ext.define("StoryMapApp", {
     extend: 'Rally.app.App',
     settingsScope: 'workspace',
     componentCls: 'app',
@@ -12,7 +12,7 @@ Ext.define("TSApp", {
     ],
 
     integrationHeaders : {
-        name : "TSApp"
+        name : "StoryMapApp"
     },
 
     config: {
@@ -22,13 +22,43 @@ Ext.define("TSApp", {
 
     getSettingsFields: function() {
         var me = this;
+        
+        var piLevelType = this.getPILevelType();
+
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
         var settings = [
+            {
+                xtype      : 'fieldcontainer',
+                fieldLabel : 'Artifact to Map',
+                defaultType: 'radiofield',
+                stateful: true,
+                stateId:'radiofield_xx',
+                width: 300,
+                defaults: {
+                    flex: 1
+                },
+                layout: 'vbox',                   
+                items: [
+                    {
+                        boxLabel  : me.secondLevelPI,
+                        name      : 'piLevelType',
+                        inputValue: me.secondLevelPI,
+                        id        : 'radio1',
+                        checked: piLevelType === me.secondLevelPI
+                    }, {
+                        boxLabel  : 'User Story',
+                        name      : 'piLevelType',
+                        inputValue: 'UserStory',
+                        id        : 'radio2',
+                        checked: piLevelType === 'UserStory'
+                    }
+                ]
+            },
             {
                 xtype: 'rallyfieldpicker',
                 name: 'columnNames',
                 autoExpand: true,
-                modelTypes: ['HierarchicalRequirement'],
+                modelTypes: piLevelType === 'UserStory' ? ['HierarchicalRequirement']: [piLevelType],
                 alwaysSelectedValues: ['FormattedID','Name'],
                 fieldBlackList: ['Attachments','Children']
             }            
@@ -36,9 +66,15 @@ Ext.define("TSApp", {
         return settings;
     },
 
+    getPILevelType : function(){
+        return this.getSetting('piLevelType');
+    },    
+
     launch: function() {
         var me = this;
-
+        
+        me.selectedPiLevelType = this.getPILevelType();
+        console.log(me.selectedPiLevelType);
         me._getPITypes().then({
             success: function(results){
                 Ext.Array.each(results, function(pi){
@@ -47,10 +83,17 @@ Ext.define("TSApp", {
                     }
                     if(pi.get('Ordinal')==1){
                         me.secondLevelPI = pi.get('TypePath');
-                    }                    
+                    }
+                    if(pi.get('Ordinal')==2){
+                        me.thirdLevelPI = pi.get('TypePath');
+                    }
+                    if(pi.get('Ordinal')==3){
+                        me.fourthLevelPI = pi.get('TypePath');
+                    }
+
                 });
 
-                Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel(me.featurePI),me._getReleases(),me._getModel('State')],me).then({
+                Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel(me.featurePI),me._getReleases(),me._getModel(me.secondLevelPI),me._getModel(me.thirdLevelPI)],me).then({
                     scope: me,
                     success: function(results) {
                         me.storyModel = results[0];
@@ -93,8 +136,47 @@ Ext.define("TSApp", {
                         });
 
                         me.releases = results[2];
-                        me.stateModel = results[3];
-                        me.addPickers();
+                        me.secondLevelPIModel = results[3];
+                        var secondLevelStateField = results[3].getField('State');
+                        secondLevelStateField.getAllowedValueStore().load({
+                            fetch: ['StringValue'],
+                            callback: function(allowedValues, operation, success){
+                                if (success){
+                                    var values = _.map(allowedValues, function(av){return av.get('_ref')});
+                                    var i = 0;
+                                    me.logger.log('AllowedValues ', values);
+                                    me.secondLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
+                                   
+                                } else {
+                                    var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
+                                    Rally.ui.notify.Notifier.showError({message: msg});
+                                }
+                            },
+                            scope: me
+                        });
+
+
+                        me.thirdLevelPIModel = results[4];
+
+                        var thirdLevelStateField = results[4].getField('State');
+                        thirdLevelStateField.getAllowedValueStore().load({
+                            fetch: ['StringValue'],
+                            callback: function(allowedValues, operation, success){
+                                if (success){
+                                    var values = _.map(allowedValues, function(av){return av.get('_ref')});
+                                    var i = 0;
+                                    me.logger.log('AllowedValues ', values);
+                                    me.thirdLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
+                                   
+                                } else {
+                                    var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
+                                    Rally.ui.notify.Notifier.showError({message: msg});
+                                }
+                            },
+                            scope: me
+                        });
+
+                        me.addPickers(me.selectedPiLevelType);
                     },
                     failure: function(error_message){
                         alert(error_message);
@@ -174,7 +256,7 @@ Ext.define("TSApp", {
 
     addPickers: function(){
         var me = this;
-        
+        var piType = me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI 
         var releaseNames = [];
         var releaseCombo = [];
 
@@ -188,7 +270,7 @@ Ext.define("TSApp", {
         me.getSelectorBox().removeAll();
 
         me.getSelectorBox().add({xtype:'panel',itemId:'row_1', bodyPadding: 5,  width: '50%', height: 150, title: 'Display Board'},
-                                {xtype:'panel',itemId:'row_2', bodyPadding: 5,  width: '50%', height: 150, title: 'Create Feature'});
+                                {xtype:'panel',itemId:'row_2', bodyPadding: 5,  width: '50%', height: 150, title: 'Create ' + piType});
 
         me.getContainer('#row_1').add({
             xtype: 'rallyartifactsearchcombobox',
@@ -199,40 +281,27 @@ Ext.define("TSApp", {
             remoteFilter: true,
             storeConfig: {
                 pageSize: 300,
-                models: [me.secondLevelPI],
+                models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
                 context: {project: null}
             }
         });
 
-        me.getContainer('#row_1').add({
-            xtype:'rallycombobox',
-            fieldLabel: 'Releases',
-            itemId: 'cbReleases',
-            margin: '10 10 10 10',
-            width: 300,
-            labelAlign: 'right',
-            store: Ext.create('Rally.data.custom.Store',{
-                data: releaseCombo,
-                fields: ['_refObjectName','_ref'],
-                pageSize:2000
-            }),
-            multiSelect: true
-        });
-
-        // me.getContainer('#row_1').add({
-        //     xtype: 'rallyfieldpicker',
-        //     name: 'columnNames',
-        //     itemId: 'columnNames',
-        //     fieldLabel: 'Choose Fields',
-        //     width: 250,
-        //     margin: '10 10 10 10',    
-        //     autoExpand: false,
-        //     alwaysExpanded: false,
-        //     modelTypes: ['HierarchicalRequirement'],
-        //     alwaysSelectedValues: ['FormattedID','Name'],
-        //     fieldBlackList: ['Attachments','Children']            
-        // });
-
+        if(me.selectedPiLevelType == 'UserStory'){
+            me.getContainer('#row_1').add({
+                xtype:'rallycombobox',
+                fieldLabel: 'Releases',
+                itemId: 'cbReleases',
+                margin: '10 10 10 10',
+                width: 300,
+                labelAlign: 'right',
+                store: Ext.create('Rally.data.custom.Store',{
+                    data: releaseCombo,
+                    fields: ['_refObjectName','_ref'],
+                    pageSize:2000
+                }),
+                multiSelect: true
+            });
+        }
 
         me.getContainer('#row_1').add({
                 xtype: 'rallybutton',
@@ -249,7 +318,7 @@ Ext.define("TSApp", {
                 xtype: 'textfield',
                 itemId:'featureName',
                 name: 'featureName',
-                fieldLabel: 'Feature Name',
+                fieldLabel: piType + ' Name',
                 margin: '10 10 10 10',
                 width:300,
                 allowBlank: false  // requires a non-empty value
@@ -257,7 +326,7 @@ Ext.define("TSApp", {
 
         me.getContainer('#row_2').add({
             xtype: 'rallybutton',
-            text: 'Create Feature',
+            text: 'Create ' + piType,
             margin: '10 10 10 10',
             cls: 'primary',
             listeners: {
@@ -303,11 +372,12 @@ Ext.define("TSApp", {
     _updateView: function(){
         var me = this;
         var pi = me.getPortfolioItem();
+        
         me.logger.log('_updateView', pi);
 
-        var releases = this.down('#cbReleases').getValue() || [];
+        var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
-        if (!pi || releases.length < 1){
+        if (!pi || (releases.length < 1 && 'UserStory' == me.selectedPiLevelType)){
             me.showMsg("Please select a portfolio item and releases");
             return;
         }
@@ -317,10 +387,11 @@ Ext.define("TSApp", {
             me.showMsg("Please select a portfolio item.");
             return;
         }
+
         me.setLoading("Loading...");
 
         Ext.create('Rally.data.wsapi.Store', {
-            model: me.featurePI,
+            model: me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI,//me.featurePI,
             autoLoad: true,
             fetch: ['Name','FormattedID'],
             context: {
@@ -358,14 +429,27 @@ Ext.define("TSApp", {
             // }
         ];
 
-        _.each(records, function(record) {
-            columns.push({
-                value: record.getRef().getRelativeUri(),
-                columnHeaderConfig: {
-                    headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
-                }
+        //TODO
+        //var type = me.selectedPiLevelType == 'UserStory' ? 'Feature' : 'PortfolioItem';//me.featurePI,
+        if(me.selectedPiLevelType == 'UserStory'){
+            _.each(records, function(record) {
+                columns.push({
+                    value: record.getRef().getRelativeUri(),
+                    columnHeaderConfig: {
+                        headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
+                    }
+                });
             });
-        });
+        }else{
+            _.each(records, function(record) {
+                columns.push({
+                    value: record.getRef().getRelativeUri(),
+                    columnHeaderConfig: {
+                        headerData: {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
+                    }
+                });
+            });
+        }
 
         me._addBoard(columns);
     },
@@ -377,7 +461,7 @@ Ext.define("TSApp", {
         Ext.defer(function () {
             Ext.widget('button', {
                 renderTo: id,
-                text: 'Add Story',
+                text: me.selectedPiLevelType == 'UserStory' ? 'Add Story' : 'Add '+me.secondLevelPI,//me.selectedPiLevelType
                 scope: this,
                 cls: 'request-button',
                 handler: function () {
@@ -393,8 +477,8 @@ Ext.define("TSApp", {
 
         var me = this;
         if (me.dialog){me.dialog.destroy();}
-        
-        var dTitle = 'Create a New Story for ' + record.get('Name');
+        var type = me.selectedPiLevelType == 'UserStory' ? 'User Story' : me.thirdLevelPI;
+        var dTitle = 'Create a New '+ type + ' ' + record.get('Name');
 
         me.dialog = Ext.create('Rally.ui.dialog.Dialog',{
             defaults: { padding: 5, margin: 20 },
@@ -406,14 +490,14 @@ Ext.define("TSApp", {
                             xtype: 'textfield',
                             itemId:'userStoryName',
                             name: 'userStoryName',
-                            fieldLabel: 'User Story Name',
+                            fieldLabel: type + ' Name',
                             margin: '10 10 10 10',
-                            width:300,
+                            width:400,
                             allowBlank: false  // requires a non-empty value
                     },
                     {
                         xtype: 'rallybutton',
-                        text: 'Create Story',
+                        text: 'Create ' + type,
                         margin: '10 10 10 10',
                         cls: 'primary',
                         listeners: {
@@ -430,15 +514,22 @@ Ext.define("TSApp", {
     _createUserStories: function(record){
         //Create a US record, specifying initial values in the constructor
         var me = this;
-        var userSotryRec = {
+        var userStoryRec = {
             Name: me.dialog ? me.dialog.down('#userStoryName').value:'',
             ScheduleState: me.scheduleStateFieldInitialValue,
             Project:me.getContext().get('project'),
-            Owner:me.getContext().get('user'),
-            PortfolioItem:record.get('_ref')
+            Owner:me.getContext().get('user')
         }
 
-        var record = Ext.create(me.storyModel, userSotryRec);
+        if(me.selectedPiLevelType == 'UserStory'){
+            userStoryRec['ScheduleState'] = me.scheduleStateFieldInitialValue;
+            userStoryRec['PortfolioItem'] = record.get('_ref');
+        }else{
+            userStoryRec['State'] = me.secondLevelStateFieldInitialValue;
+            userStoryRec['Parent'] = record.get('_ref');            
+        }
+
+        var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.storyModel, userStoryRec) : Ext.create(me.secondLevelPIModel, userStoryRec);
 
         record.save({
             callback: function(result, operation) {
@@ -446,7 +537,7 @@ Ext.define("TSApp", {
                     //Get the new stories formatted id
                     var formattedId = result.get('FormattedID');
                     //Display success msg
-                    me.showMsg("User Story Created."+formattedId);
+                    me.showMsg(me.selectedPiLevelType + " Created."+formattedId);
                     if(me.dialog) {me.dialog.destroy();}
                     me._updateView();
                 }
@@ -464,17 +555,16 @@ Ext.define("TSApp", {
             me.showMsg("Please select a portfolio item.");
             return;
         }
-        var stateRecord = Ext.create(me.stateModel, {Name: 'Backlog'});
 
         var featureRec = {
             Name: me.down('#featureName').value,
             Project:me.getContext().get('project'), 
             Owner:me.getContext().get('user'),
             Parent: pi.get('_ref'),
-            State: me.stateFieldInitialValue
+            State: me.selectedPiLevelType == 'UserStory' ? me.stateFieldInitialValue : me.thirdLevelStateFieldInitialValue
         }
 
-        var record = Ext.create(me.featureModel, featureRec);
+        var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.featureModel, featureRec) : Ext.create(me.thirdLevelPIModel, featureRec);
 
         record.save({
             callback: function(result, operation) {
@@ -482,7 +572,7 @@ Ext.define("TSApp", {
                     //Get the new stories formatted id
                     var formattedId = result.get('FormattedID');
                     //Display success msg
-                    me.showMsg("Feature Created."+formattedId);
+                    me.showMsg("PI Created."+formattedId);
                     me._updateView();
                 }
             },
@@ -496,7 +586,7 @@ Ext.define("TSApp", {
 
         me.getDisplayBox().removeAll();
 
-        var releases = this.down('#cbReleases').getValue() || [];
+        var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
         
@@ -528,11 +618,11 @@ Ext.define("TSApp", {
             rowReleaseRecords.push(null);
         }
 
-        me.getDisplayBox().add({        
+        var cardBoardConfig = {        
             xtype: 'rallycardboard',
             itemId: 'storyCardBoard',
-            types: ['HierarchicalRequirement'],
-            attribute: 'PortfolioItem',
+            types: me.selectedPiLevelType == 'UserStory' ? ['HierarchicalRequirement']:[me.secondLevelPI ],
+            attribute: me.selectedPiLevelType == 'UserStory' ? 'PortfolioItem' : 'Parent',
             plugins: [
                 {
                     ptype: 'rallyscrollablecardboard',
@@ -546,22 +636,27 @@ Ext.define("TSApp", {
                 //showAge: this.getSetting('showCardAge') ? this.getSetting('cardAgeThreshold') : -1,
                 showBlockedReason: true
             },
-            rowConfig: {
-                field: 'Release',
-                values: rowReleaseRecords,
-                enableCrossRowDragging: true
-            },            
             storeConfig: storeConfig,                     
             context: me.getContext(),
             columnConfig: {
                 columnHeaderConfig: {
-                    headerTpl: '{Feature}'
+                    headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
                 }
             },
            
             loadMask: 'Loading!',
             columns: columns
-        });
+        };
+
+        if(me.selectedPiLevelType == 'UserStory'){
+            cardBoardConfig['rowConfig'] = {
+                field: 'Release',
+                values: rowReleaseRecords,
+                enableCrossRowDragging: true
+            };
+        }
+
+        me.getDisplayBox().add(cardBoardConfig);
         me.setLoading(false);
     },
 
