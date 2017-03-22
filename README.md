@@ -1,16 +1,17 @@
 #Story Map App
 
-This application lets the user query all the User Stories that belongs to a specific 2nd Level PI and a set of Releases.
-- Lets the user to choose the 2nd Level PI type on app settings. 
-- Lists all User Stories that belongs to a specific 2nd Level PI and a set of Releases on a cardboard 
+This application helps users to do Stroy mapping or 2nd Level PI Mapping. 
+- Lets the user to choose the artifact type (Story or 2nd Level PI) on app settings. 
+- If story is selected, lists all User Stories that belongs to a specific 2nd Level PI and a set of Releases on a cardboard 
 - The column represents the Feature that the Story belongs to.
 - Includes Release Swimlanes
 - Lets user create a Feature
 - Lets user create a Story under a specific feature using the Add Story Button.
+- allows dragging of cards aross columns (features) or rows (releases).
 
 ![ScreenShot](images/ss1.png)
 
-You will be able to choose the 2nd Level PI Type and the fields that should appear on the card.
+Users will be able to choose the artifact type and the fields that should appear on the card.
 
 ![ScreenShot](images/ss2.png)
 
