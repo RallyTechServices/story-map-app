@@ -17,6 +17,7 @@ Ext.define("StoryMapApp", {
 
     config: {
         defaultSettings: {
+            piLevelType: 'UserStory'
         }
     },    
 
@@ -24,6 +25,11 @@ Ext.define("StoryMapApp", {
         var me = this;
         
         var piLevelType = this.getPILevelType();
+
+        // console.log('piLevelType',piLevelType,me.secondLevelPI);
+
+        // var modelTypes = ['HierarchicalRequirement'];
+        // if(piLevelType) modelTypes.push(piLevelType);
 
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
         var settings = [
@@ -44,7 +50,7 @@ Ext.define("StoryMapApp", {
                         name      : 'piLevelType',
                         inputValue: me.secondLevelPI,
                         id        : 'radio1',
-                        checked: piLevelType === me.secondLevelPI
+                        checked: me.secondLevelPI && piLevelType === me.secondLevelPI
                     }, {
                         boxLabel  : 'User Story',
                         name      : 'piLevelType',
@@ -58,7 +64,8 @@ Ext.define("StoryMapApp", {
                 xtype: 'rallyfieldpicker',
                 name: 'columnNames',
                 autoExpand: true,
-                modelTypes: piLevelType === 'UserStory' ? ['HierarchicalRequirement']: [piLevelType],
+                modelTypes: ['HierarchicalRequirement','PortfolioItem'],
+                //modelTypes: piLevelType && piLevelType != 'UserStory' ? [piLevelType] : ['HierarchicalRequirement'],
                 alwaysSelectedValues: ['FormattedID','Name'],
                 fieldBlackList: ['Attachments','Children']
             }            
@@ -67,7 +74,7 @@ Ext.define("StoryMapApp", {
     },
 
     getPILevelType : function(){
-        return this.getSetting('piLevelType');
+        return this.getSetting('piLevelType') ? this.getSetting('piLevelType') : 'UserStory' ;
     },    
 
     launch: function() {
@@ -318,7 +325,7 @@ Ext.define("StoryMapApp", {
                 xtype: 'textfield',
                 itemId:'featureName',
                 name: 'featureName',
-                fieldLabel: piType + ' Name',
+                fieldLabel: piType.replace('PortfolioItem/','') + ' Name',
                 margin: '10 10 10 10',
                 width:300,
                 allowBlank: false  // requires a non-empty value
@@ -326,7 +333,7 @@ Ext.define("StoryMapApp", {
 
         me.getContainer('#row_2').add({
             xtype: 'rallybutton',
-            text: 'Create ' + piType,
+            text: 'Create ' + piType.replace('PortfolioItem/',''),
             margin: '10 10 10 10',
             cls: 'primary',
             listeners: {
@@ -461,7 +468,7 @@ Ext.define("StoryMapApp", {
         Ext.defer(function () {
             Ext.widget('button', {
                 renderTo: id,
-                text: me.selectedPiLevelType == 'UserStory' ? 'Add Story' : 'Add '+me.secondLevelPI,//me.selectedPiLevelType
+                text: me.selectedPiLevelType == 'UserStory' ? 'Add Story' : 'Add '+me.secondLevelPI.replace('PortfolioItem/',''),//me.selectedPiLevelType
                 scope: this,
                 cls: 'request-button',
                 handler: function () {
@@ -477,8 +484,8 @@ Ext.define("StoryMapApp", {
 
         var me = this;
         if (me.dialog){me.dialog.destroy();}
-        var type = me.selectedPiLevelType == 'UserStory' ? 'User Story' : me.thirdLevelPI;
-        var dTitle = 'Create a New '+ type + ' ' + record.get('Name');
+        var type = me.selectedPiLevelType == 'UserStory' ? 'User Story' : me.secondLevelPI.replace('PortfolioItem/','');
+        var dTitle = 'Create a New '+ type + ' for ' + record.get('Name');
 
         me.dialog = Ext.create('Rally.ui.dialog.Dialog',{
             defaults: { padding: 5, margin: 20 },
