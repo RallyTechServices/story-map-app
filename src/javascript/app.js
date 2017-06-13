@@ -5,6 +5,9 @@ Ext.define("StoryMapApp", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
+      {xtype:'container',itemId:'print_box',layout:{type:'hbox'},
+          width: '100pct'
+      },
         {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
             width: '100pct'
         },
@@ -19,11 +22,11 @@ Ext.define("StoryMapApp", {
         defaultSettings: {
             piLevelType: 'UserStory'
         }
-    },    
+    },
 
     getSettingsFields: function() {
         var me = this;
-        
+
         var piLevelType = this.getPILevelType();
 
         // console.log('piLevelType',piLevelType,me.secondLevelPI);
@@ -43,7 +46,7 @@ Ext.define("StoryMapApp", {
                 defaults: {
                     flex: 1
                 },
-                layout: 'vbox',                   
+                layout: 'vbox',
                 items: [
                     {
                         boxLabel  : me.secondLevelPI,
@@ -68,20 +71,20 @@ Ext.define("StoryMapApp", {
                 //modelTypes: piLevelType && piLevelType != 'UserStory' ? [piLevelType] : ['HierarchicalRequirement'],
                 alwaysSelectedValues: ['FormattedID','Name'],
                 fieldBlackList: ['Attachments','Children']
-            }            
+            }
             ];
         return settings;
     },
 
     getPILevelType : function(){
         return this.getSetting('piLevelType') ? this.getSetting('piLevelType') : 'UserStory' ;
-    },    
+    },
 
     launch: function() {
         var me = this;
-        
+
         me.selectedPiLevelType = this.getPILevelType();
-        console.log(me.selectedPiLevelType);
+      
         me._getPITypes().then({
             success: function(results){
                 Ext.Array.each(results, function(pi){
@@ -113,7 +116,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.scheduleStateFieldInitialValue = values[0] == "" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -133,7 +136,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.stateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -153,7 +156,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.secondLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -174,7 +177,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.thirdLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -198,7 +201,7 @@ Ext.define("StoryMapApp", {
 
 
     },
-    
+
     _getPITypes: function() {
         var deferred = Ext.create('Deft.Deferred');
         Ext.create('Rally.data.wsapi.Store',{
@@ -213,20 +216,20 @@ Ext.define("StoryMapApp", {
                 }
             }
         });
-        
+
         return deferred.promise;
     },
 
     _getReleases: function(){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-         
+
         Ext.create('Rally.data.wsapi.Store', {
             model: 'Release',
             fetch: ['Name','ObjectID','Project','ReleaseDate'],
             context: {
                 projectScopeUp: false,
-                projectScopeDown: false            
+                projectScopeDown: false
             },
             limit: 'Infinity',
             sorters: [{
@@ -260,10 +263,29 @@ Ext.define("StoryMapApp", {
 
         return deferred.promise;
     },
+    _printBoard: function(){
 
+        var cardboard = this.down('rallycardboard');
+        if (!cardboard){
+          return;
+        }
+
+        var fields = this._getAlwaysSelectedFields() || ['FormattedID','Name'];
+        this.logger.log('_printBoard', fields);
+
+        var win = Ext.create('CATS.utils.CardboardPrint',{
+            cardboard: cardboard,
+            displayFields: fields,
+            currentDocument: Ext.getDoc(),
+            logger: this.logger
+        });
+
+        win.show();
+        win.print();
+    },
     addPickers: function(){
         var me = this;
-        var piType = me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI 
+        var piType = me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI
         var releaseNames = [];
         var releaseCombo = [];
 
@@ -271,7 +293,30 @@ Ext.define("StoryMapApp", {
             if (!Ext.Array.contains(releaseNames, rel.get('_refObjectName'))){
                 releaseNames.push(rel.get('_refObjectName'));
                 releaseCombo.push({_refObjectName: rel.get('_refObjectName'), _ref: rel.get('_refObjectName')});
-            }            
+            }
+        });
+
+        me.getPrintBox().removeAll();
+
+        var fp = me.getPrintBox().add({
+          xtype: 'fieldpickerbutton',
+            modelNames: ['HierarchicalRequirement'],
+            context: this.getContext(),
+            margin: '10 5 10 5',
+            stateful: true,
+            stateId: 'board-columns'
+        });
+        fp.on('fieldsupdated', this._updateView, this);
+
+        me.getPrintBox().add({
+          xtype:'rallybutton',
+          iconCls: 'icon-print',
+          cls: 'secondary rly-small',
+            margin: '10 5 10 5',
+          listeners: {
+            click: this._printBoard,
+            scope: this
+          }
         });
 
         me.getSelectorBox().removeAll();
@@ -346,6 +391,9 @@ Ext.define("StoryMapApp", {
     getSelectorBox: function(){
         return this.down('#selector_box');
     },
+    getPrintBox: function(){
+        return this.down('#print_box');
+    },
     getContainer: function(name){
         return this.down(name);
     },
@@ -362,7 +410,7 @@ Ext.define("StoryMapApp", {
     },
     getScopedStateId: function (suffix) {
         return this.getContext().getScopedStateId(this.getStateId(suffix));
-    },    
+    },
     showMsg: function(msg){
         this.getDisplayBox().removeAll();
         if (!msg){
@@ -376,10 +424,12 @@ Ext.define("StoryMapApp", {
     },
 
 
-    _updateView: function(){
+    _updateView: function(fields){
+       this.logger.log('_updateView', fields);
+
         var me = this;
         var pi = me.getPortfolioItem();
-        
+
         me.logger.log('_updateView', pi);
 
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
@@ -389,7 +439,7 @@ Ext.define("StoryMapApp", {
             return;
         }
 
-        
+
         if (!pi ){
             me.showMsg("Please select a portfolio item.");
             return;
@@ -403,8 +453,8 @@ Ext.define("StoryMapApp", {
             fetch: ['Name','FormattedID'],
             context: {
                 projectScopeUp: false,
-                projectScopeDown: true            
-            },              
+                projectScopeDown: true
+            },
             filters: [
                 {
                     property: 'Parent',
@@ -442,6 +492,7 @@ Ext.define("StoryMapApp", {
             _.each(records, function(record) {
                 columns.push({
                     value: record.getRef().getRelativeUri(),
+                    record: record,
                     columnHeaderConfig: {
                         headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
                     }
@@ -451,6 +502,7 @@ Ext.define("StoryMapApp", {
             _.each(records, function(record) {
                 columns.push({
                     value: record.getRef().getRelativeUri(),
+                    record: record,
                     columnHeaderConfig: {
                         headerData: {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
                     }
@@ -533,7 +585,7 @@ Ext.define("StoryMapApp", {
             userStoryRec['PortfolioItem'] = record.get('_ref');
         }else{
             userStoryRec['State'] = me.secondLevelStateFieldInitialValue;
-            userStoryRec['Parent'] = record.get('_ref');            
+            userStoryRec['Parent'] = record.get('_ref');
         }
 
         var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.storyModel, userStoryRec) : Ext.create(me.secondLevelPIModel, userStoryRec);
@@ -565,7 +617,7 @@ Ext.define("StoryMapApp", {
 
         var featureRec = {
             Name: me.down('#featureName').value,
-            Project:me.getContext().get('project'), 
+            Project:me.getContext().get('project'),
             Owner:me.getContext().get('user'),
             Parent: pi.get('_ref'),
             State: me.selectedPiLevelType == 'UserStory' ? me.stateFieldInitialValue : me.thirdLevelStateFieldInitialValue
@@ -596,16 +648,16 @@ Ext.define("StoryMapApp", {
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
-        
+
         var rowReleaseRecords = [];
 
-
+        this.logger.log('addBoard', me._getAlwaysSelectedFields());
         var storeConfig = {
                 context: this.getContext().getDataContext(),
                 fetch: me._getAlwaysSelectedFields(),
                 context: {
                     projectScopeUp: false,
-                    projectScopeDown: true            
+                    projectScopeDown: true
                 },
                 limit: 'Infinity'
             }
@@ -618,14 +670,14 @@ Ext.define("StoryMapApp", {
 
             Ext.Array.each( me.releases, function(record) {
                 if(Ext.Array.contains(releases, record.get('Name'))){
-                    rowReleaseRecords.push(record.getData()); 
+                    rowReleaseRecords.push(record.getData());
                 }
-            });                       
+            });
         }else{
             rowReleaseRecords.push(null);
         }
 
-        var cardBoardConfig = {        
+        var cardBoardConfig = {
             xtype: 'rallycardboard',
             itemId: 'storyCardBoard',
             types: me.selectedPiLevelType == 'UserStory' ? ['HierarchicalRequirement']:[me.secondLevelPI ],
@@ -634,7 +686,7 @@ Ext.define("StoryMapApp", {
                 {
                     ptype: 'rallyscrollablecardboard',
                     containerEl: this.getEl()
-                }           
+                }
             ],
             cardConfig: {
                 editable: true,
@@ -643,14 +695,14 @@ Ext.define("StoryMapApp", {
                 //showAge: this.getSetting('showCardAge') ? this.getSetting('cardAgeThreshold') : -1,
                 showBlockedReason: true
             },
-            storeConfig: storeConfig,                     
+            storeConfig: storeConfig,
             context: me.getContext(),
             columnConfig: {
                 columnHeaderConfig: {
                     headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
                 }
             },
-           
+
             loadMask: 'Loading!',
             columns: columns
         };
@@ -669,18 +721,22 @@ Ext.define("StoryMapApp", {
 
 
     _getAlwaysSelectedFields: function() {
-        var columns = this.getSetting('columnNames') ;
-                
+        var columns = this.getSetting('columnNames');
+        var additionalColumns = [];
+        if (this.down('fieldpickerbutton')){
+           additionalColumns = this.down('fieldpickerbutton').getFields();
+        }
+
         if ( Ext.isEmpty(columns) ) {
-            return [];
+            return additionalColumns;
         }
-        
+
+
         if ( Ext.isString(columns) ) {
-            return columns.split(',');
+            columns = columns.split(',');
         }
-        
-        // console.log('_getAlwaysSelectedFields',columns);
-        return Ext.Array.unique( columns );
+
+        return Ext.Array.unique( columns.concat(additionalColumns) );
     },
 
     getOptions: function() {
@@ -692,12 +748,12 @@ Ext.define("StoryMapApp", {
             }
         ];
     },
-    
+
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
     },
-    
+
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
     },
@@ -706,6 +762,6 @@ Ext.define("StoryMapApp", {
         this.logger.log('onSettingsUpdate',settings);
         // Ext.apply(this, settings);
         this.launch();
-    }    
-    
+    }
+
 });

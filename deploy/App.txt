@@ -3,15 +3,15 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 29 2017 14:11:57 GMT-0700 (PDT) -->
-    
+    <!--  Build Date: Tue Jun 13 2017 15:00:49 GMT-0600 (MDT) -->
+
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 29 2017 14:11:57 GMT-0700 (PDT)";
+        var APP_BUILD_DATE = "Tue Jun 13 2017 15:00:49 GMT-0600 (MDT)";
         var STORY    = "US951";
-        var BUILDER  = "rajan08";
-        var CHECKSUM = 18799547272;
+        var BUILDER  = "corkr03";
+        var CHECKSUM = 44411657492;
     </script>
-    
+
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
 
     <script type="text/javascript">
@@ -234,6 +234,418 @@ Ext.override(Rally.ui.cardboard.row.Row, {
         //             Rally.util.Ref.getRelativeUri(recordValue) === Rally.util.Ref.getRelativeUri(rowValue)));
         // },
 });
+Ext.define('CATS.utils.CardboardPrint',{
+    // singleton: true,
+    // print: function(cardboard){
+    //   console.log('columns', cardboard.getColumns());
+    //   console.log('rows', cardboard.getRows());
+    //   console.log('cards', cardboard.getCards());
+    //
+    // }
+    //     extend: 'Ext.Window',
+      //  logger: new Rally.technicalservices.Logger(),
+        truncateText: '...',
+        title: 'Print Story Map',
+        cardboard: null,
+        styleSheetTitle: "printStoryMap",
+        currentDocument: null,
+        logger: null,
+        /**
+         *  Array of the following:
+         *  dataIndex
+         *  maxLength (default 0)
+         *  cls (defaults are: card-title, content,
+         */
+        displayFields: ['FormattedID','Name'],
+
+        constructor: function(config){
+           this.title = config.title || this.title;
+           this.cardboard = config.cardboard;
+           this.logger = config.logger;
+           this.currentDocument = config.currentDocument;
+           this.displayFields = config.displayFields || this.displayFields;
+        },
+        show: function(){
+            var options = "toolbar=1,menubar=1,scrollbars=yes,scrolling=yes,resizable=yes,width=1000,height=500";
+            this.win = window.open('',this.title);
+
+          //  var html = this._buildCardsHTML();
+            this.win.document.write('<html><head><title>' + this.title + '</title>');
+            this.win.document.write('<style>');
+            this.win.document.write(this._getStyleSheet(this.styleSheetTitle));
+            this.win.document.write('</style>');
+            this.win.document.write('</head><body class="landscape">');
+            //this.win.document.write(html);
+            this.win.document.write('</body></html>');
+
+
+        },
+
+        print: function() {
+          this.logger.log('print', this.win);
+          if ( !this.win ) {
+            this.show();
+          }
+          this.win.document.body.innerHTML = this._buildCardsHTML();
+
+        },
+        _getFeatureRenderer: function(record){
+
+          var vals = [];
+          this.logger.log('_getFeatureRenderer', record.getData(), this.displayFields);
+          Ext.Array.each(this.displayFields, function(d){
+            var val = record.get(d);
+            if (val){
+              vals.push(val);
+            }
+          });
+          return vals.join('<br>');
+        },
+        _getStoryRecords: function(rows, columns, rowIdx, colIdx){
+            var col = columns[colIdx],
+                row = rows[rowIdx],
+                release = rows[rowIdx] && rows[rowIdx].value && rows[rowIdx].value.ObjectID || 0;
+
+                var records = [];
+                col.getStore().each(function(rec){
+                  if (rec.get('Release') && rec.get('Release').ObjectID === release){
+                     records.push(rec);
+                  }
+                  if (release === 0 && !rec.get('Release')){
+                    records.push(rec);
+                  }
+                });
+                return records;
+        },
+        _getStoryCard: function(record){
+            var vals = [record.get('FormattedID') + ": " + record.get('Name')];
+            this.logger.log('_getStoryCard', record.getData(), this.displayFields);
+            Ext.Array.each(this.displayFields, function(d){
+              if (d !== "Name" && d !== "FormattedID"){
+                var val = record.get(d);
+                if (val){
+                  if (Ext.isObject(val)){
+                    if (val._refObjectName){
+                       val = val._refObjectName;
+                    } else if (val._tagsNameArray && val._tagsNameArray.length > 0){
+                        val = _.pluck(val._tagsNameArray, 'Name').join(', ')
+                    } else if (val.Count >= 0){
+                       val = val.Count;
+                    }
+                  }
+                  var fieldName = record.getField(d).displayName;
+                  vals.push(fieldName + ": " + val);
+                }
+              }
+
+            });
+            this.logger.log('_getStoryCard vals', vals);
+            return vals.join('<br>');
+        },
+        _getStoryRenderer: function(records, cardColumns){
+            if (!records || records.length === 0){
+               return Ext.String.format('<td colspan="{0}"></td>',cardColumns);
+            }
+
+            var html = "<td><table width=\"100%\">",
+                colIdx = 0,
+                width = 100/cardColumns;
+
+            Ext.Array.each(records, function(r){
+               colIdx++;
+               if (colIdx === 1){
+                 html += '<tr>';
+               }
+               html += Ext.String.format('<td class="story-cell" width="{1}%">{0}</td>', this._getStoryCard(r), width);
+               if (colIdx === cardColumns){
+                  html += "</tr>";
+                  colIdx = 0;
+               }
+            }, this);
+
+            if (colIdx > 0 && colIdx < cardColumns){
+              for (var i=colIdx; i < cardColumns; i++){
+                html += '<td class="empty-cell" width="{1}%"></td>'
+              }
+              html += '</tr>';
+            }
+
+            html += "</table></td>";
+            return html;
+
+        },
+        _getReleaseRenderer: function(recordData){
+          return recordData && recordData.Name || "No Release";
+        },
+        _buildCardsHTML: function() {
+
+            this.logger.log('cardboard', this.cardboard);
+              this.logger.log('columns', this.cardboard.getColumns());
+              this.logger.log('rows', this.cardboard.getRows());
+              this.logger.log('cards', this.cardboard.getCards());
+
+              var colCount = this.cardboard.getColumns().length,
+                  rowCount = this.cardboard.getRows().length;
+
+              var colWidth = 100/colCount;
+              this.logger.log('columnWidth', colWidth);
+              var columns = this.cardboard.getColumns();
+              var html = '<table style="width:100%"><thead>';
+
+              var multiColumns = false,
+                  storyColCount = 1;
+              if (multiColumns){
+                storyColCount = Math.floor(8/colCount);
+              }
+
+              for (var i=0; i<colCount; i++){
+                var val = this._getFeatureRenderer(columns[i].record);
+                html += Ext.String.format('<th class="feature-cell" style="width:' + colWidth + '%">{0}</td>', val);
+              }
+              html += '</thead>';
+              this.logger.log('html', html);
+
+              var rows = this.cardboard.getRows();
+              for (var i=0; i<rowCount; i++){
+                 //insert divider row here
+                 var relRecord = rows[i].value;
+                 html += Ext.String.format('<tr><td colspan="' + colCount + '" class="release-cell">{0}</td></tr>', this._getReleaseRenderer(relRecord));
+                 html+= '<tr>';
+                 for (var j=0; j<colCount; j++){
+                    var records = this._getStoryRecords(rows, columns, i, j);
+                    html += this._getStoryRenderer(records, storyColCount);
+                 }
+                 html += '</tr>';
+              }
+
+              html += '</table>';
+              this.logger.log('html', html);
+              return html;
+        },
+
+        _getStyleSheet: function(styleSheetTitle) {
+            this.logger.log('getStyleSheet');
+            var styleSheet;
+            // var docs = Ext.getDoc();
+            var elems = this.currentDocument.query('style');
+
+            for (var i=0; i< elems.length; i++){
+                if (elems[i].title == styleSheetTitle){
+                    styleSheet = elems[i];
+                }
+            }
+            return styleSheet.innerHTML;
+        }
+});
+
+Ext.define('CATS.utils.FieldPicker', {
+    alias: 'widget.fieldpickerbutton',
+    extend:'Rally.ui.Button',
+    requires: [
+        'Rally.ui.popover.Popover',
+        'Rally.ui.Button',
+        'Rally.ui.picker.FieldPicker',
+        'Ext.state.Manager'
+    ],
+    toolTipConfig: {
+        html: 'Show Columns',
+        anchor: 'top'
+    },
+    iconCls: 'icon-add-column',
+
+    cls: 'field-picker-btn secondary rly-small',
+
+    applyText: "Apply",
+
+    alwaysSelectedValues: ['FormattedID', 'Name'], // DragAndDropRank gets added in init if Drag and Drop is enabled for the workspace in the component's context
+
+    fieldBlackList: [],
+
+    fieldPickerConfig: {},
+
+    buttonConfig: {},
+
+    modelNames: ['HierarchicalRequirement'],
+
+    rankingEnabled: false,
+
+    margin: '3 9 0 0',
+
+    //This does not show the Rank column
+
+    constructor: function (config) {
+        this.config = _.merge({}, this.config || {}, config || {});
+        this.callParent([config]);
+    },
+
+    initComponent: function() {
+
+        if (this.models){
+            this.on('click', this._createPopover, this);
+            this.callParent(arguments);
+            return;
+        }
+
+        if (this.context && this.modelNames && this.modelNames.length > 0){
+            Rally.data.ModelFactory.getModels({
+                types: this.modelNames,
+                context: this.context,
+                success: function(models){
+                    console.log('models');
+                    this.models = models;
+
+                },
+                failure: function(failedParam){
+                    console.log('failedparam');
+                },
+                scope: this
+            });
+            this.on('click', this._createPopover, this);
+        } else {
+            this.iconCls = 'icon-none';
+            var msg = "Please update the CATS.utils.FieldPicker configuration with modelNames and context";
+            this.toolTipConfig= {
+                html: '<div style="color:red;">' + msg + '</div>'
+            };
+            this.on('click', function(){ Rally.ui.notify.Notifier.showError({message: msg}); });
+        }
+        this.callParent(arguments);
+    },
+    getFields: function(){
+        return this._fields || this.alwaysSelectedValues;
+    },
+    _getPickerConfig: function() {
+        var pickerConfig;
+        pickerConfig = _.extend({
+            value: this._fields,
+            fieldBlackList: this.fieldBlackList,
+            alwaysSelectedValues: this.alwaysSelectedValues,
+            context: this.context
+        }, this.fieldPickerConfig);
+
+        return pickerConfig;
+    },
+
+    _createPopover: function(btn) {
+        var popoverTarget = btn.getEl();
+
+        this.popover = Ext.create('Rally.ui.popover.Popover', {
+            target: popoverTarget,
+            placement: ['bottom', 'left', 'top', 'right'],
+            cls: 'field-picker-popover',
+            toFront: Ext.emptyFn,
+            buttonAlign: 'center',
+            title: this.getTitle(),
+            listeners: {
+                destroy: function () {
+                    this.popover = null;
+                },
+                scope: this
+            },
+            buttons: [
+                {
+                    xtype: "rallybutton",
+                    text: this.applyText,
+                    cls: 'field-picker-apply-btn primary rly-small',
+                    listeners: {
+                        click: function() {
+                            this._onApply(this.popover);
+                        },
+                        scope: this
+                    }
+                },
+                {
+                    xtype: "rallybutton",
+                    text: 'Cancel',
+                    cls: 'field-picker-cancel-btn secondary dark rly-small',
+                    listeners: {
+                        click: function() {
+                            this.popover.close();
+                        },
+                        scope: this
+                    }
+                }
+            ],
+            items: [
+                _.extend({
+                    xtype: 'rallyfieldpicker',
+                    cls: 'field-picker',
+                    itemId: 'fieldpicker',
+                    modelTypes: this._getModelTypes(),
+                    alwaysExpanded: true,
+                    width: 200,
+                    emptyText: 'Search',
+                    selectedTextLabel: 'Selected',
+                    availableTextLabel: 'Available',
+                    listeners: {
+                        specialkey: function(field, e) {
+                            if (e.getKey() === e.ESC) {
+                                this.popover.close();
+                            }
+                        },
+                        scope: this
+                    }
+                }, this._getPickerConfig())
+            ]
+        });
+    },
+
+    _getModelTypes: function() {
+        return _.pluck(this._getModels(), 'typePath');
+    },
+
+    _getModels: function() {
+        return _.reduce(this.models, function(accum, model) {
+            if (model.typePath === 'artifact') {
+                accum = accum.concat(model.getArtifactComponentModels());
+            } else {
+                accum.push(model);
+            }
+            return accum;
+        }, []);
+    },
+
+    getTitle: function () {
+        return 'Show Columns';
+    },
+
+    /**
+     * Update the fields displayed. In grid mode this will be the columns displayed. In board mode it will be
+     * the fields on the cards
+     *
+     * @param {String[]|Object[]} fields A list of field names to display
+     * @param {Boolean} true to suspend store load if it will be triggered elsewhere
+     */
+    updateFields: function (fields, suspendLoad) {
+        this._fields = fields;
+        if (this.popover && this.popover.down('rallyfieldpicker')) {
+            this.popover.down('rallyfieldpicker').setValue(fields.join(','));
+        }
+        this.saveState();
+    },
+    getState: function(){
+        return {
+            fields: this._fields
+        };
+    },
+    applyState: function(state){
+        if (state){
+            this._fields = state.fields;
+        }
+    },
+    _onApply: function(popover) {
+        var fieldPicker = popover.down('rallyfieldpicker'),
+            fields = _.map(fieldPicker.getValue(), function (field) {
+                return field.get('name');
+            });
+
+        this.updateFields(fields);
+        popover.close();
+
+        this.fireEvent('fieldsupdated', fields);
+    }
+});
+
 Ext.define("StoryMapApp", {
     extend: 'Rally.app.App',
     settingsScope: 'workspace',
@@ -241,6 +653,9 @@ Ext.define("StoryMapApp", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
+      {xtype:'container',itemId:'print_box',layout:{type:'hbox'},
+          width: '100pct'
+      },
         {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
             width: '100pct'
         },
@@ -255,11 +670,11 @@ Ext.define("StoryMapApp", {
         defaultSettings: {
             piLevelType: 'UserStory'
         }
-    },    
+    },
 
     getSettingsFields: function() {
         var me = this;
-        
+
         var piLevelType = this.getPILevelType();
 
         // console.log('piLevelType',piLevelType,me.secondLevelPI);
@@ -279,7 +694,7 @@ Ext.define("StoryMapApp", {
                 defaults: {
                     flex: 1
                 },
-                layout: 'vbox',                   
+                layout: 'vbox',
                 items: [
                     {
                         boxLabel  : me.secondLevelPI,
@@ -304,20 +719,20 @@ Ext.define("StoryMapApp", {
                 //modelTypes: piLevelType && piLevelType != 'UserStory' ? [piLevelType] : ['HierarchicalRequirement'],
                 alwaysSelectedValues: ['FormattedID','Name'],
                 fieldBlackList: ['Attachments','Children']
-            }            
+            }
             ];
         return settings;
     },
 
     getPILevelType : function(){
         return this.getSetting('piLevelType') ? this.getSetting('piLevelType') : 'UserStory' ;
-    },    
+    },
 
     launch: function() {
         var me = this;
-        
+
         me.selectedPiLevelType = this.getPILevelType();
-        console.log(me.selectedPiLevelType);
+      
         me._getPITypes().then({
             success: function(results){
                 Ext.Array.each(results, function(pi){
@@ -349,7 +764,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.scheduleStateFieldInitialValue = values[0] == "" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for ScheduleState' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -369,7 +784,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.stateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -389,7 +804,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.secondLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -410,7 +825,7 @@ Ext.define("StoryMapApp", {
                                     var i = 0;
                                     me.logger.log('AllowedValues ', values);
                                     me.thirdLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
-                                   
+
                                 } else {
                                     var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
                                     Rally.ui.notify.Notifier.showError({message: msg});
@@ -434,7 +849,7 @@ Ext.define("StoryMapApp", {
 
 
     },
-    
+
     _getPITypes: function() {
         var deferred = Ext.create('Deft.Deferred');
         Ext.create('Rally.data.wsapi.Store',{
@@ -449,20 +864,20 @@ Ext.define("StoryMapApp", {
                 }
             }
         });
-        
+
         return deferred.promise;
     },
 
     _getReleases: function(){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
-         
+
         Ext.create('Rally.data.wsapi.Store', {
             model: 'Release',
             fetch: ['Name','ObjectID','Project','ReleaseDate'],
             context: {
                 projectScopeUp: false,
-                projectScopeDown: false            
+                projectScopeDown: false
             },
             limit: 'Infinity',
             sorters: [{
@@ -496,10 +911,29 @@ Ext.define("StoryMapApp", {
 
         return deferred.promise;
     },
+    _printBoard: function(){
 
+        var cardboard = this.down('rallycardboard');
+        if (!cardboard){
+          return;
+        }
+
+        var fields = this._getAlwaysSelectedFields() || ['FormattedID','Name'];
+        this.logger.log('_printBoard', fields);
+
+        var win = Ext.create('CATS.utils.CardboardPrint',{
+            cardboard: cardboard,
+            displayFields: fields,
+            currentDocument: Ext.getDoc(),
+            logger: this.logger
+        });
+
+        win.show();
+        win.print();
+    },
     addPickers: function(){
         var me = this;
-        var piType = me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI 
+        var piType = me.selectedPiLevelType == 'UserStory' ? me.featurePI : me.thirdLevelPI
         var releaseNames = [];
         var releaseCombo = [];
 
@@ -507,7 +941,30 @@ Ext.define("StoryMapApp", {
             if (!Ext.Array.contains(releaseNames, rel.get('_refObjectName'))){
                 releaseNames.push(rel.get('_refObjectName'));
                 releaseCombo.push({_refObjectName: rel.get('_refObjectName'), _ref: rel.get('_refObjectName')});
-            }            
+            }
+        });
+
+        me.getPrintBox().removeAll();
+
+        var fp = me.getPrintBox().add({
+          xtype: 'fieldpickerbutton',
+            modelNames: ['HierarchicalRequirement'],
+            context: this.getContext(),
+            margin: '10 5 10 5',
+            stateful: true,
+            stateId: 'board-columns'
+        });
+        fp.on('fieldsupdated', this._updateView, this);
+
+        me.getPrintBox().add({
+          xtype:'rallybutton',
+          iconCls: 'icon-print',
+          cls: 'secondary rly-small',
+            margin: '10 5 10 5',
+          listeners: {
+            click: this._printBoard,
+            scope: this
+          }
         });
 
         me.getSelectorBox().removeAll();
@@ -582,6 +1039,9 @@ Ext.define("StoryMapApp", {
     getSelectorBox: function(){
         return this.down('#selector_box');
     },
+    getPrintBox: function(){
+        return this.down('#print_box');
+    },
     getContainer: function(name){
         return this.down(name);
     },
@@ -598,7 +1058,7 @@ Ext.define("StoryMapApp", {
     },
     getScopedStateId: function (suffix) {
         return this.getContext().getScopedStateId(this.getStateId(suffix));
-    },    
+    },
     showMsg: function(msg){
         this.getDisplayBox().removeAll();
         if (!msg){
@@ -612,10 +1072,12 @@ Ext.define("StoryMapApp", {
     },
 
 
-    _updateView: function(){
+    _updateView: function(fields){
+       this.logger.log('_updateView', fields);
+
         var me = this;
         var pi = me.getPortfolioItem();
-        
+
         me.logger.log('_updateView', pi);
 
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
@@ -625,7 +1087,7 @@ Ext.define("StoryMapApp", {
             return;
         }
 
-        
+
         if (!pi ){
             me.showMsg("Please select a portfolio item.");
             return;
@@ -639,8 +1101,8 @@ Ext.define("StoryMapApp", {
             fetch: ['Name','FormattedID'],
             context: {
                 projectScopeUp: false,
-                projectScopeDown: true            
-            },              
+                projectScopeDown: true
+            },
             filters: [
                 {
                     property: 'Parent',
@@ -678,6 +1140,7 @@ Ext.define("StoryMapApp", {
             _.each(records, function(record) {
                 columns.push({
                     value: record.getRef().getRelativeUri(),
+                    record: record,
                     columnHeaderConfig: {
                         headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
                     }
@@ -687,6 +1150,7 @@ Ext.define("StoryMapApp", {
             _.each(records, function(record) {
                 columns.push({
                     value: record.getRef().getRelativeUri(),
+                    record: record,
                     columnHeaderConfig: {
                         headerData: {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
                     }
@@ -769,7 +1233,7 @@ Ext.define("StoryMapApp", {
             userStoryRec['PortfolioItem'] = record.get('_ref');
         }else{
             userStoryRec['State'] = me.secondLevelStateFieldInitialValue;
-            userStoryRec['Parent'] = record.get('_ref');            
+            userStoryRec['Parent'] = record.get('_ref');
         }
 
         var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.storyModel, userStoryRec) : Ext.create(me.secondLevelPIModel, userStoryRec);
@@ -801,7 +1265,7 @@ Ext.define("StoryMapApp", {
 
         var featureRec = {
             Name: me.down('#featureName').value,
-            Project:me.getContext().get('project'), 
+            Project:me.getContext().get('project'),
             Owner:me.getContext().get('user'),
             Parent: pi.get('_ref'),
             State: me.selectedPiLevelType == 'UserStory' ? me.stateFieldInitialValue : me.thirdLevelStateFieldInitialValue
@@ -832,16 +1296,16 @@ Ext.define("StoryMapApp", {
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
-        
+
         var rowReleaseRecords = [];
 
-
+        this.logger.log('addBoard', me._getAlwaysSelectedFields());
         var storeConfig = {
                 context: this.getContext().getDataContext(),
                 fetch: me._getAlwaysSelectedFields(),
                 context: {
                     projectScopeUp: false,
-                    projectScopeDown: true            
+                    projectScopeDown: true
                 },
                 limit: 'Infinity'
             }
@@ -854,14 +1318,14 @@ Ext.define("StoryMapApp", {
 
             Ext.Array.each( me.releases, function(record) {
                 if(Ext.Array.contains(releases, record.get('Name'))){
-                    rowReleaseRecords.push(record.getData()); 
+                    rowReleaseRecords.push(record.getData());
                 }
-            });                       
+            });
         }else{
             rowReleaseRecords.push(null);
         }
 
-        var cardBoardConfig = {        
+        var cardBoardConfig = {
             xtype: 'rallycardboard',
             itemId: 'storyCardBoard',
             types: me.selectedPiLevelType == 'UserStory' ? ['HierarchicalRequirement']:[me.secondLevelPI ],
@@ -870,7 +1334,7 @@ Ext.define("StoryMapApp", {
                 {
                     ptype: 'rallyscrollablecardboard',
                     containerEl: this.getEl()
-                }           
+                }
             ],
             cardConfig: {
                 editable: true,
@@ -879,14 +1343,14 @@ Ext.define("StoryMapApp", {
                 //showAge: this.getSetting('showCardAge') ? this.getSetting('cardAgeThreshold') : -1,
                 showBlockedReason: true
             },
-            storeConfig: storeConfig,                     
+            storeConfig: storeConfig,
             context: me.getContext(),
             columnConfig: {
                 columnHeaderConfig: {
                     headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
                 }
             },
-           
+
             loadMask: 'Loading!',
             columns: columns
         };
@@ -905,18 +1369,22 @@ Ext.define("StoryMapApp", {
 
 
     _getAlwaysSelectedFields: function() {
-        var columns = this.getSetting('columnNames') ;
-                
+        var columns = this.getSetting('columnNames');
+        var additionalColumns = [];
+        if (this.down('fieldpickerbutton')){
+           additionalColumns = this.down('fieldpickerbutton').getFields();
+        }
+
         if ( Ext.isEmpty(columns) ) {
-            return [];
+            return additionalColumns;
         }
-        
+
+
         if ( Ext.isString(columns) ) {
-            return columns.split(',');
+            columns = columns.split(',');
         }
-        
-        // console.log('_getAlwaysSelectedFields',columns);
-        return Ext.Array.unique( columns );
+
+        return Ext.Array.unique( columns.concat(additionalColumns) );
     },
 
     getOptions: function() {
@@ -928,12 +1396,12 @@ Ext.define("StoryMapApp", {
             }
         ];
     },
-    
+
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
     },
-    
+
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
     },
@@ -942,17 +1410,17 @@ Ext.define("StoryMapApp", {
         this.logger.log('onSettingsUpdate',settings);
         // Ext.apply(this, settings);
         this.launch();
-    }    
-    
+    }
+
 });
 
-            
+
                Rally.launchApp('StoryMapApp', {
                    name: 'Story Map App'
                });
         });
     </script>
-    
+
     <style type="text/css">
 
 .app {
@@ -973,6 +1441,67 @@ Ext.define("StoryMapApp", {
     cursor: pointer;
 }
     </style>
+    
+<style type="text/css" title="printStoryMap">
+/* PLEASE LEAVE THIS STYLESHEET INLINE SINCE TITLE IS NECESSARY */
+@media print {
+    #interface {
+        display: none;
+    }
+
+    .pb {
+        page-break-after: always;
+        clear: both;
+    }
+
+    body {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+        font-family: ProximaNova, helvetica, sans-serif;
+        color: #000;
+    }
+}
+
+#interface, #printSection {
+    margin: 20px;
+}
+
+.feature-cell {
+  background-color: #ccc;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 1px solid black;
+}
+
+.story-cell {
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  font-size: 11px;
+  text-align: left;
+  border: 1px solid black;
+  padding: 10px;
+}
+
+.empty-cell {
+  background-color: white;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 0px;
+}
+
+.release-cell {
+  background-color: #222;
+  color: #fff;
+  font-family: ProximaNovaSemiBold, helvetica, sans-serif;
+  font-size: 14px;
+  text-align: center;
+  border: 1px solid black;
+}
+
+</style>
 
 </head>
 <body></body>
