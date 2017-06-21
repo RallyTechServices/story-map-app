@@ -1,5 +1,5 @@
 Ext.override(Rally.ui.cardboard.row.Row, {
-        /** 
+        /**
          * Determine whether the specified record belongs in this row
          * @param {Rally.data.Model} record
          * @returns {Boolean}
@@ -21,4 +21,19 @@ Ext.override(Rally.ui.cardboard.row.Row, {
         //         (Rally.util.Ref.isRefUri(rowValue) &&
         //             Rally.util.Ref.getRelativeUri(recordValue) === Rally.util.Ref.getRelativeUri(rowValue)));
         // },
+});
+
+Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
+
+      applyState: function(state) {
+        console.log('state', state && state.value);
+        if (state && state.value){
+          this.store.on('load', function() {
+            console.log('store loaded', state.value);
+              this.setValue(state.value);
+              this.saveState();
+          }, this, {single: true});
+          this.store.load();
+        }
+      }
 });

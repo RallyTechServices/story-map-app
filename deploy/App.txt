@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 13 2017 15:00:49 GMT-0600 (MDT) -->
+    <!--  Build Date: Tue Jun 20 2017 18:26:55 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 13 2017 15:00:49 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Tue Jun 20 2017 18:26:55 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 44411657492;
+        var CHECKSUM = 46304347407;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -211,7 +211,7 @@ Ext.define('Rally.technicalservices.Logger',{
 });
 
 Ext.override(Rally.ui.cardboard.row.Row, {
-        /** 
+        /**
          * Determine whether the specified record belongs in this row
          * @param {Rally.data.Model} record
          * @returns {Boolean}
@@ -234,6 +234,22 @@ Ext.override(Rally.ui.cardboard.row.Row, {
         //             Rally.util.Ref.getRelativeUri(recordValue) === Rally.util.Ref.getRelativeUri(rowValue)));
         // },
 });
+
+Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
+
+      applyState: function(state) {
+        console.log('state', state && state.value);
+        if (state && state.value){
+          this.store.on('load', function() {
+            console.log('store loaded', state.value);
+              this.setValue(state.value);
+              this.saveState();
+          }, this, {single: true});
+          this.store.load();
+        }
+      }
+});
+
 Ext.define('CATS.utils.CardboardPrint',{
     // singleton: true,
     // print: function(cardboard){
@@ -732,7 +748,7 @@ Ext.define("StoryMapApp", {
         var me = this;
 
         me.selectedPiLevelType = this.getPILevelType();
-      
+
         me._getPITypes().then({
             success: function(results){
                 Ext.Array.each(results, function(pi){
@@ -979,6 +995,9 @@ Ext.define("StoryMapApp", {
             fieldLabel: "Portfolio Item",
             labelAlign: 'right',
             remoteFilter: true,
+            emptyText: "Type ID or Keyword to Search...",
+            stateful: true,
+            stateId: "story-map-app-selected-portfolio",
             storeConfig: {
                 pageSize: 300,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
@@ -994,6 +1013,8 @@ Ext.define("StoryMapApp", {
                 margin: '10 10 10 10',
                 width: 300,
                 labelAlign: 'right',
+                stateful: true,
+                stateId: "story-map-app-releases",
                 store: Ext.create('Rally.data.custom.Store',{
                     data: releaseCombo,
                     fields: ['_refObjectName','_ref'],
@@ -1192,15 +1213,27 @@ Ext.define("StoryMapApp", {
             closable: true,
             draggable: true,
             title: dTitle,
+            listeners: {
+              render: function(dlg){
+                  dlg.down('#userStoryName').focus();
+              }
+            },
             items: [
                     {
-                            xtype: 'textfield',
-                            itemId:'userStoryName',
-                            name: 'userStoryName',
-                            fieldLabel: type + ' Name',
-                            margin: '10 10 10 10',
-                            width:400,
-                            allowBlank: false  // requires a non-empty value
+                      xtype: 'textfield',
+                      itemId:'userStoryName',
+                      name: 'userStoryName',
+                      fieldLabel: type + ' Name',
+                      margin: '10 10 10 10',
+                      width:400,
+                      listeners: {
+                          afterrender: function(field) {
+                            Ext.defer(function() {
+                                field.focus(true, 100);
+                            }, 1);
+                        }
+                      },
+                      allowBlank: false  // requires a non-empty value
                     },
                     {
                         xtype: 'rallybutton',
@@ -1251,6 +1284,8 @@ Ext.define("StoryMapApp", {
             },
             scope:me
         });
+
+        Rally.data.Ranker.rankToBottom(record);
 
     },
 

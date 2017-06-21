@@ -84,7 +84,7 @@ Ext.define("StoryMapApp", {
         var me = this;
 
         me.selectedPiLevelType = this.getPILevelType();
-      
+
         me._getPITypes().then({
             success: function(results){
                 Ext.Array.each(results, function(pi){
@@ -331,6 +331,9 @@ Ext.define("StoryMapApp", {
             fieldLabel: "Portfolio Item",
             labelAlign: 'right',
             remoteFilter: true,
+            emptyText: "Type ID or Keyword to Search...",
+            stateful: true,
+            stateId: "story-map-app-selected-portfolio",
             storeConfig: {
                 pageSize: 300,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
@@ -346,6 +349,8 @@ Ext.define("StoryMapApp", {
                 margin: '10 10 10 10',
                 width: 300,
                 labelAlign: 'right',
+                stateful: true,
+                stateId: "story-map-app-releases",
                 store: Ext.create('Rally.data.custom.Store',{
                     data: releaseCombo,
                     fields: ['_refObjectName','_ref'],
@@ -544,15 +549,27 @@ Ext.define("StoryMapApp", {
             closable: true,
             draggable: true,
             title: dTitle,
+            listeners: {
+              render: function(dlg){
+                  dlg.down('#userStoryName').focus();
+              }
+            },
             items: [
                     {
-                            xtype: 'textfield',
-                            itemId:'userStoryName',
-                            name: 'userStoryName',
-                            fieldLabel: type + ' Name',
-                            margin: '10 10 10 10',
-                            width:400,
-                            allowBlank: false  // requires a non-empty value
+                      xtype: 'textfield',
+                      itemId:'userStoryName',
+                      name: 'userStoryName',
+                      fieldLabel: type + ' Name',
+                      margin: '10 10 10 10',
+                      width:400,
+                      listeners: {
+                          afterrender: function(field) {
+                            Ext.defer(function() {
+                                field.focus(true, 100);
+                            }, 1);
+                        }
+                      },
+                      allowBlank: false  // requires a non-empty value
                     },
                     {
                         xtype: 'rallybutton',
@@ -603,6 +620,8 @@ Ext.define("StoryMapApp", {
             },
             scope:me
         });
+
+        Rally.data.Ranker.rankToBottom(record);
 
     },
 
