@@ -277,7 +277,8 @@ Ext.define("StoryMapApp", {
             cardboard: cardboard,
             displayFields: fields,
             currentDocument: Ext.getDoc(),
-            logger: this.logger
+            logger: this.logger,
+            portfolioItem: this.getPortfolioItem()
         });
 
         win.show();

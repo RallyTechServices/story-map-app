@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 20 2017 18:26:55 GMT-0600 (MDT) -->
+    <!--  Build Date: Tue Jun 20 2017 18:40:17 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 20 2017 18:26:55 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Tue Jun 20 2017 18:40:17 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 46304347407;
+        var CHECKSUM = 47320762734;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -280,6 +280,7 @@ Ext.define('CATS.utils.CardboardPrint',{
            this.logger = config.logger;
            this.currentDocument = config.currentDocument;
            this.displayFields = config.displayFields || this.displayFields;
+           this.portfolioItem = config.portfolioItem;
         },
         show: function(){
             var options = "toolbar=1,menubar=1,scrollbars=yes,scrolling=yes,resizable=yes,width=1000,height=500";
@@ -320,11 +321,11 @@ Ext.define('CATS.utils.CardboardPrint',{
         _getStoryRecords: function(rows, columns, rowIdx, colIdx){
             var col = columns[colIdx],
                 row = rows[rowIdx],
-                release = rows[rowIdx] && rows[rowIdx].value && rows[rowIdx].value.ObjectID || 0;
+                release = rows[rowIdx] && rows[rowIdx].value && rows[rowIdx].value.Name || 0;
 
                 var records = [];
                 col.getStore().each(function(rec){
-                  if (rec.get('Release') && rec.get('Release').ObjectID === release){
+                  if (rec.get('Release') && rec.get('Release').Name === release){
                      records.push(rec);
                   }
                   if (release === 0 && !rec.get('Release')){
@@ -406,7 +407,9 @@ Ext.define('CATS.utils.CardboardPrint',{
               var colWidth = 100/colCount;
               this.logger.log('columnWidth', colWidth);
               var columns = this.cardboard.getColumns();
-              var html = '<table style="width:100%"><thead>';
+              var html = Ext.String.format("<h1 class=\"initiative-title\">{0}: {1}</h1>",this.portfolioItem.get('FormattedID'), this.portfolioItem.get('Name'));
+
+              html += '<table style="width:100%"><thead>';
 
               var multiColumns = false,
                   storyColCount = 1;
@@ -941,7 +944,8 @@ Ext.define("StoryMapApp", {
             cardboard: cardboard,
             displayFields: fields,
             currentDocument: Ext.getDoc(),
-            logger: this.logger
+            logger: this.logger,
+            portfolioItem: this.getPortfolioItem()
         });
 
         win.show();
@@ -1500,6 +1504,14 @@ Ext.define("StoryMapApp", {
 
 #interface, #printSection {
     margin: 20px;
+}
+
+h1.initiative-title {
+  font-family: ProximaNovaBold, helvetica, sans-serif;
+  font-size: 18px;
+  text-align: center;
+  text-transform: uppercase;
+
 }
 
 .feature-cell {
