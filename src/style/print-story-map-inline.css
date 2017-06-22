@@ -1,0 +1,68 @@
+<style type="text/css" title="printStoryMap">
+/* PLEASE LEAVE THIS STYLESHEET INLINE SINCE TITLE IS NECESSARY */
+@media print {
+    #interface {
+        display: none;
+    }
+
+    .pb {
+        page-break-after: always;
+        clear: both;
+    }
+
+    body {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+        font-family: ProximaNova, helvetica, sans-serif;
+        color: #000;
+    }
+}
+
+#interface, #printSection {
+    margin: 20px;
+}
+
+h1.initiative-title {
+  font-family: ProximaNovaBold, helvetica, sans-serif;
+  font-size: 18px;
+  text-align: center;
+  text-transform: uppercase;
+
+}
+
+.feature-cell {
+  background-color: #ccc;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 1px solid black;
+}
+
+.story-cell {
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  font-size: 11px;
+  text-align: left;
+  border: 1px solid black;
+  padding: 10px;
+}
+
+.empty-cell {
+  background-color: white;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 0px;
+}
+
+.release-cell {
+  background-color: #222;
+  color: #fff;
+  font-family: ProximaNovaSemiBold, helvetica, sans-serif;
+  font-size: 14px;
+  text-align: center;
+  border: 1px solid black;
+}
+
+</style>

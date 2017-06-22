@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Story Map App</title>
+    <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Tue Jun 20 2017 18:26:55 GMT-0600 (MDT) -->
+
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Jun 20 2017 18:26:55 GMT-0600 (MDT)";
+        var CHECKSUM = [%= checksum %];
+    </script>
+
+    <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            
+
+               Rally.launchApp('StoryMapApp', {
+                   name: 'Story Map App'
+               });
+        });
+    </script>
+
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+    
+    
+<style type="text/css" title="printStoryMap">
+/* PLEASE LEAVE THIS STYLESHEET INLINE SINCE TITLE IS NECESSARY */
+@media print {
+    #interface {
+        display: none;
+    }
+
+    .pb {
+        page-break-after: always;
+        clear: both;
+    }
+
+    body {
+        background-color: #fff;
+        margin: 0;
+        padding: 0;
+        font-family: ProximaNova, helvetica, sans-serif;
+        color: #000;
+    }
+}
+
+#interface, #printSection {
+    margin: 20px;
+}
+
+.feature-cell {
+  background-color: #ccc;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 1px solid black;
+}
+
+.story-cell {
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  font-size: 11px;
+  text-align: left;
+  border: 1px solid black;
+  padding: 10px;
+}
+
+.empty-cell {
+  background-color: white;
+  vertical-align: middle;
+  font-family: ProximaNova, helvetica, sans-serif;
+  text-align: center;
+  border: 0px;
+}
+
+.release-cell {
+  background-color: #222;
+  color: #fff;
+  font-family: ProximaNovaSemiBold, helvetica, sans-serif;
+  font-size: 14px;
+  text-align: center;
+  border: 1px solid black;
+}
+
+</style>
+
+
+</head>
+<body></body>
+</html>

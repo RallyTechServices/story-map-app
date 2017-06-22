@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Story Map App</title>
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Jun 20 2017 18:26:55 GMT-0600 (MDT)";
+    </script>
+    
+    <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.1/sdk-debug.js?apiKey=_PUT_APIKEY_HERE_"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+            Rally.loadScripts(["src/javascript/utils/__ts-info-link.js","src/javascript/utils/__ts-logger.js","src/javascript/utils/_override.js","src/javascript/utils/cardboard-print.js","src/javascript/utils/field-picker-button.js","src/javascript/app.js"],
+	            function() {
+	                Rally.launchApp('StoryMapApp', {
+	                    name: 'Story Map App'
+	                })
+	            }, true);
+        });
+    </script>
+<link rel="stylesheet" type="text/css" href="src/style/app.css"><link rel="stylesheet" type="text/css" href="src/style/print-story-map-inline.css">
+
+</head>
+<body></body>
+</html>
