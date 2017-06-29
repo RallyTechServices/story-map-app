@@ -339,6 +339,10 @@ Ext.define("StoryMapApp", {
                 pageSize: 300,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
                 context: {project: null}
+            },
+            listeners: {
+              stateloaded: this._updateView,
+              scope: this
             }
         });
 
@@ -609,6 +613,7 @@ Ext.define("StoryMapApp", {
         var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.storyModel, userStoryRec) : Ext.create(me.secondLevelPIModel, userStoryRec);
 
         record.save({
+            params: {rankTo: 'BOTTOM'},
             callback: function(result, operation) {
                 if(operation.wasSuccessful()) {
                     //Get the new stories formatted id
@@ -622,7 +627,7 @@ Ext.define("StoryMapApp", {
             scope:me
         });
 
-        Rally.data.Ranker.rankToBottom(record);
+
 
     },
 
@@ -736,6 +741,7 @@ Ext.define("StoryMapApp", {
         }
 
         me.getDisplayBox().add(cardBoardConfig);
+
         me.setLoading(false);
     },
 
