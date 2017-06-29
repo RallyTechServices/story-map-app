@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 20 2017 18:40:17 GMT-0600 (MDT) -->
+    <!--  Build Date: Thu Jun 29 2017 06:43:59 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 20 2017 18:40:17 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Thu Jun 29 2017 06:43:59 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 47320762734;
+        var CHECKSUM = 47291235108;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -238,12 +238,11 @@ Ext.override(Rally.ui.cardboard.row.Row, {
 Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
 
       applyState: function(state) {
-        console.log('state', state && state.value);
         if (state && state.value){
           this.store.on('load', function() {
-            console.log('store loaded', state.value);
               this.setValue(state.value);
               this.saveState();
+              this.fireEvent('stateloaded');
           }, this, {single: true});
           this.store.load();
         }
@@ -1006,6 +1005,10 @@ Ext.define("StoryMapApp", {
                 pageSize: 300,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
                 context: {project: null}
+            },
+            listeners: {
+              stateloaded: this._updateView,
+              scope: this
             }
         });
 
@@ -1276,6 +1279,7 @@ Ext.define("StoryMapApp", {
         var record = me.selectedPiLevelType == 'UserStory' ? Ext.create(me.storyModel, userStoryRec) : Ext.create(me.secondLevelPIModel, userStoryRec);
 
         record.save({
+            params: {rankTo: 'BOTTOM'},
             callback: function(result, operation) {
                 if(operation.wasSuccessful()) {
                     //Get the new stories formatted id
@@ -1289,7 +1293,7 @@ Ext.define("StoryMapApp", {
             scope:me
         });
 
-        Rally.data.Ranker.rankToBottom(record);
+
 
     },
 
@@ -1403,6 +1407,7 @@ Ext.define("StoryMapApp", {
         }
 
         me.getDisplayBox().add(cardBoardConfig);
+
         me.setLoading(false);
     },
 

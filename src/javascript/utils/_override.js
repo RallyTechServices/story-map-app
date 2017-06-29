@@ -26,12 +26,11 @@ Ext.override(Rally.ui.cardboard.row.Row, {
 Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
 
       applyState: function(state) {
-        console.log('state', state && state.value);
         if (state && state.value){
           this.store.on('load', function() {
-            console.log('store loaded', state.value);
               this.setValue(state.value);
               this.saveState();
+              this.fireEvent('stateloaded');
           }, this, {single: true});
           this.store.load();
         }

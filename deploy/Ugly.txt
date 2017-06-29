@@ -3,10 +3,10 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jun 20 2017 18:26:55 GMT-0600 (MDT) -->
+    <!--  Build Date: Thu Jun 29 2017 06:44:00 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jun 20 2017 18:26:55 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Thu Jun 29 2017 06:44:00 GMT-0600 (MDT)";
         var CHECKSUM = [%= checksum %];
     </script>
 
@@ -67,6 +67,14 @@
 
 #interface, #printSection {
     margin: 20px;
+}
+
+h1.initiative-title {
+  font-family: ProximaNovaBold, helvetica, sans-serif;
+  font-size: 18px;
+  text-align: center;
+  text-transform: uppercase;
+
 }
 
 .feature-cell {
