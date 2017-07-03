@@ -149,12 +149,16 @@ Ext.define('CATS.utils.CardboardPrint',{
               this.logger.log('rows', this.cardboard.getRows());
               this.logger.log('cards', this.cardboard.getCards());
 
-              var colCount = this.cardboard.getColumns().length,
+
+              var columns = Ext.Array.filter(this.cardboard.getColumns(), function(c){
+                return c.headerCell && !/collapsed/.test(c.headerCell.className);
+              });
+    
+              var colCount = columns.length,
                   rowCount = this.cardboard.getRows().length;
 
               var colWidth = 100/colCount;
               this.logger.log('columnWidth', colWidth);
-              var columns = this.cardboard.getColumns();
               var html = Ext.String.format("<h1 class=\"initiative-title\">{0}: {1}</h1>",this.portfolioItem.get('FormattedID'), this.portfolioItem.get('Name'));
 
               html += '<table style="width:100%"><thead>';

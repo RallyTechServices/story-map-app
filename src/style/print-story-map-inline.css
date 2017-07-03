@@ -23,6 +23,10 @@
     margin: 20px;
 }
 
+td {
+  vertical-align: top;
+}
+
 h1.initiative-title {
   font-family: ProximaNovaBold, helvetica, sans-serif;
   font-size: 18px;
