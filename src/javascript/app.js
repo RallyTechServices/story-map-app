@@ -29,11 +29,6 @@ Ext.define("StoryMapApp", {
 
         var piLevelType = this.getPILevelType();
 
-        // console.log('piLevelType',piLevelType,me.secondLevelPI);
-
-        // var modelTypes = ['HierarchicalRequirement'];
-        // if(piLevelType) modelTypes.push(piLevelType);
-
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
         var settings = [
             {
@@ -487,61 +482,59 @@ Ext.define("StoryMapApp", {
             me.setLoading(false);
             return;
         }
-        var columns = [
-            // {
-            //     value: null,
-            //     columnHeaderConfig: {
-            //         headerData: {Feature: 'No Feature'}
-            //     }
-            // }
-        ];
+        var columns = [];
 
         //TODO
         //var type = me.selectedPiLevelType == 'UserStory' ? 'Feature' : 'PortfolioItem';//me.featurePI,
-        if(me.selectedPiLevelType == 'UserStory'){
-            _.each(records, function(record) {
-                columns.push({
-                    value: record.getRef().getRelativeUri(),
-                    record: record,
-                    columnHeaderConfig: {
-                        headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
-                    }
-                });
-            });
-        }else{
-            _.each(records, function(record) {
-                columns.push({
-                    value: record.getRef().getRelativeUri(),
-                    record: record,
-                    columnHeaderConfig: {
-                        headerData: {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
-                    }
-                });
-            });
-        }
+        _.each(records, function(record){
+            var headerData = {};
 
+            if(me.selectedPiLevelType == 'UserStory'){
+              headerData = {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') }; //+ '  ' +  me._getAddStoryButton(record)},
+            } else {
+              headerData = {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') };
+            }
+
+            columns.push({
+              value: record.getRef().getRelativeUri(),
+              record: record,
+              columnHeaderConfig: {
+                  headerData: headerData,
+                  listeners: {
+                    boxready: function(header){
+                      this._updateColumnHeaderData(header, record, true);
+                    },
+                    scope: this
+                  }
+              }
+            });
+        }, this);
         me._addBoard(columns);
     },
 
+    _updateColumnHeaderData: function(columnHeader, record, expanded){
 
-    _getAddStoryButton: function(record){
-        var me = this;
-        var id = Ext.id();
-        Ext.defer(function () {
-            Ext.widget('button', {
-                renderTo: id,
-                text: me.selectedPiLevelType == 'UserStory' ? 'Add Story' : 'Add '+me.secondLevelPI.replace('PortfolioItem/',''),//me.selectedPiLevelType
-                scope: this,
-                cls: 'request-button',
-                handler: function () {
-                    me._createStoryDialog(record);
-                }
-            });
-        }, 300, this);
-        return Ext.String.format('<div id="{0}"></div>', id);
+      if (columnHeader.down('#addButton')){
+        columnHeader.down('#addButton').destroy();
+      }
+
+      if (expanded){
+        var selectedPIType = this.selectedPiLevelType,
+            buttonLabel = selectedPIType == 'UserStory' ? 'Add Story' : 'Add '+ this.secondLevelPI.replace('PortfolioItem/','');
+
+        columnHeader.down('#headerTitle').add({
+            xtype: 'rallybutton',
+            itemId: 'addButton',
+            text: buttonLabel,
+            scope: this,
+            cls: 'request-button',
+            handler: function () {
+                this._createStoryDialog(record);
+            }
+          });
+      }
+
     },
-
-
     _createStoryDialog: function(record){
 
         var me = this;
@@ -725,11 +718,27 @@ Ext.define("StoryMapApp", {
             columnConfig: {
                 columnHeaderConfig: {
                     headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
-                }
+                },
+                plugins: [{
+                    ptype: 'rallycardboardcollapsiblecolumns'
+                }]
             },
 
             loadMask: 'Loading!',
-            columns: columns
+            columns: columns,
+            listeners: {
+              scope: this,
+              columnvisibilitychanged: function(collapsiblePlugin){
+
+                if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
+
+                var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
+                    columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
+
+                this._updateColumnHeaderData(columnHeader, record, collapsiblePlugin.columnExpanded) ;
+
+              }
+            }
         };
 
         if(me.selectedPiLevelType == 'UserStory'){

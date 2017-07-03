@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jun 29 2017 06:43:59 GMT-0600 (MDT) -->
+    <!--  Build Date: Mon Jul 03 2017 16:15:42 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jun 29 2017 06:43:59 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Mon Jul 03 2017 16:15:42 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 47291235108;
+        var CHECKSUM = 48538984232;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -400,12 +400,16 @@ Ext.define('CATS.utils.CardboardPrint',{
               this.logger.log('rows', this.cardboard.getRows());
               this.logger.log('cards', this.cardboard.getCards());
 
-              var colCount = this.cardboard.getColumns().length,
+
+              var columns = Ext.Array.filter(this.cardboard.getColumns(), function(c){
+                return c.headerCell && !/collapsed/.test(c.headerCell.className);
+              });
+    
+              var colCount = columns.length,
                   rowCount = this.cardboard.getRows().length;
 
               var colWidth = 100/colCount;
               this.logger.log('columnWidth', colWidth);
-              var columns = this.cardboard.getColumns();
               var html = Ext.String.format("<h1 class=\"initiative-title\">{0}: {1}</h1>",this.portfolioItem.get('FormattedID'), this.portfolioItem.get('Name'));
 
               html += '<table style="width:100%"><thead>';
@@ -694,11 +698,6 @@ Ext.define("StoryMapApp", {
         var me = this;
 
         var piLevelType = this.getPILevelType();
-
-        // console.log('piLevelType',piLevelType,me.secondLevelPI);
-
-        // var modelTypes = ['HierarchicalRequirement'];
-        // if(piLevelType) modelTypes.push(piLevelType);
 
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
         var settings = [
@@ -1153,61 +1152,59 @@ Ext.define("StoryMapApp", {
             me.setLoading(false);
             return;
         }
-        var columns = [
-            // {
-            //     value: null,
-            //     columnHeaderConfig: {
-            //         headerData: {Feature: 'No Feature'}
-            //     }
-            // }
-        ];
+        var columns = [];
 
         //TODO
         //var type = me.selectedPiLevelType == 'UserStory' ? 'Feature' : 'PortfolioItem';//me.featurePI,
-        if(me.selectedPiLevelType == 'UserStory'){
-            _.each(records, function(record) {
-                columns.push({
-                    value: record.getRef().getRelativeUri(),
-                    record: record,
-                    columnHeaderConfig: {
-                        headerData: {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
-                    }
-                });
-            });
-        }else{
-            _.each(records, function(record) {
-                columns.push({
-                    value: record.getRef().getRelativeUri(),
-                    record: record,
-                    columnHeaderConfig: {
-                        headerData: {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') + '  ' +  me._getAddStoryButton(record)}
-                    }
-                });
-            });
-        }
+        _.each(records, function(record){
+            var headerData = {};
 
+            if(me.selectedPiLevelType == 'UserStory'){
+              headerData = {Feature: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') }; //+ '  ' +  me._getAddStoryButton(record)},
+            } else {
+              headerData = {Parent: Ext.create('Rally.ui.renderer.template.FormattedIDTemplate',{}).apply(record.data) + ': ' + record.get('_refObjectName') };
+            }
+
+            columns.push({
+              value: record.getRef().getRelativeUri(),
+              record: record,
+              columnHeaderConfig: {
+                  headerData: headerData,
+                  listeners: {
+                    boxready: function(header){
+                      this._updateColumnHeaderData(header, record, true);
+                    },
+                    scope: this
+                  }
+              }
+            });
+        }, this);
         me._addBoard(columns);
     },
 
+    _updateColumnHeaderData: function(columnHeader, record, expanded){
 
-    _getAddStoryButton: function(record){
-        var me = this;
-        var id = Ext.id();
-        Ext.defer(function () {
-            Ext.widget('button', {
-                renderTo: id,
-                text: me.selectedPiLevelType == 'UserStory' ? 'Add Story' : 'Add '+me.secondLevelPI.replace('PortfolioItem/',''),//me.selectedPiLevelType
-                scope: this,
-                cls: 'request-button',
-                handler: function () {
-                    me._createStoryDialog(record);
-                }
-            });
-        }, 300, this);
-        return Ext.String.format('<div id="{0}"></div>', id);
+      if (columnHeader.down('#addButton')){
+        columnHeader.down('#addButton').destroy();
+      }
+
+      if (expanded){
+        var selectedPIType = this.selectedPiLevelType,
+            buttonLabel = selectedPIType == 'UserStory' ? 'Add Story' : 'Add '+ this.secondLevelPI.replace('PortfolioItem/','');
+
+        columnHeader.down('#headerTitle').add({
+            xtype: 'rallybutton',
+            itemId: 'addButton',
+            text: buttonLabel,
+            scope: this,
+            cls: 'request-button',
+            handler: function () {
+                this._createStoryDialog(record);
+            }
+          });
+      }
+
     },
-
-
     _createStoryDialog: function(record){
 
         var me = this;
@@ -1391,11 +1388,27 @@ Ext.define("StoryMapApp", {
             columnConfig: {
                 columnHeaderConfig: {
                     headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
-                }
+                },
+                plugins: [{
+                    ptype: 'rallycardboardcollapsiblecolumns'
+                }]
             },
 
             loadMask: 'Loading!',
-            columns: columns
+            columns: columns,
+            listeners: {
+              scope: this,
+              columnvisibilitychanged: function(collapsiblePlugin){
+
+                if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
+
+                var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
+                    columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
+
+                this._updateColumnHeaderData(columnHeader, record, collapsiblePlugin.columnExpanded) ;
+
+              }
+            }
         };
 
         if(me.selectedPiLevelType == 'UserStory'){
@@ -1509,6 +1522,10 @@ Ext.define("StoryMapApp", {
 
 #interface, #printSection {
     margin: 20px;
+}
+
+td {
+  vertical-align: top;
 }
 
 h1.initiative-title {
