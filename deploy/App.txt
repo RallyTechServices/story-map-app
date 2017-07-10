@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jul 03 2017 16:15:42 GMT-0600 (MDT) -->
+    <!--  Build Date: Mon Jul 10 2017 11:48:34 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jul 03 2017 16:15:42 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Mon Jul 10 2017 11:48:34 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 48538984232;
+        var CHECKSUM = 50705149487;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -238,9 +238,12 @@ Ext.override(Rally.ui.cardboard.row.Row, {
 Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
 
       applyState: function(state) {
-        if (state && state.value){
+        if (state && state.value && state.value !== null){
+      
           this.store.on('load', function() {
+
               this.setValue(state.value);
+              this.value = state.value ;
               this.saveState();
               this.fireEvent('stateloaded');
           }, this, {single: true});
@@ -1001,12 +1004,18 @@ Ext.define("StoryMapApp", {
             stateful: true,
             stateId: "story-map-app-selected-portfolio",
             storeConfig: {
-                pageSize: 300,
+                pageSize: 2000,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
                 context: {project: null}
             },
             listeners: {
               stateloaded: this._updateView,
+              beforestatesave:function(me, state){
+
+                if (state && state.value === null){
+                  return false;
+                }
+              },
               scope: this
             }
         });
@@ -1077,7 +1086,22 @@ Ext.define("StoryMapApp", {
         return this.down('#display_box');
     },
     getPortfolioItem: function(){
-        return this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getRecord() || null;
+        this.logger.log('getPortfolioItem', this.down('rallyartifactsearchcombobox').getValue());
+        var val = this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getValue(),
+            rec = this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getRecord() || null;
+
+            this.logger.log('getPortfolioItem', val, this.down('rallyartifactsearchcombobox').getStore());
+        if (val && rec === null){
+            this.down('rallyartifactsearchcombobox').getStore().each(function(r){
+              if (r.get('_ref') === val){
+                 rec = r;
+              }
+              console.log('r',r.get('_ref'),r.getData());
+            });
+           this.logger.log('rec', rec);
+        }
+        return rec;
+
     },
     showErrorNotification: function(msg){
         this.setLoading(false);
@@ -1109,7 +1133,7 @@ Ext.define("StoryMapApp", {
 
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
-        if (!pi || (releases.length < 1 && 'UserStory' == me.selectedPiLevelType)){
+        if (!pi || pi.get('ObjectID') === null || (releases.length < 1 && 'UserStory' == me.selectedPiLevelType)){
             me.showMsg("Please select a portfolio item and releases");
             return;
         }
@@ -1400,7 +1424,10 @@ Ext.define("StoryMapApp", {
               scope: this,
               columnvisibilitychanged: function(collapsiblePlugin){
 
+
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
+
+                this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
                 var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
                     columnHeader = collapsiblePlugin.getCmp().getColumnHeader();

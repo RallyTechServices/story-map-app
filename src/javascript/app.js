@@ -331,12 +331,18 @@ Ext.define("StoryMapApp", {
             stateful: true,
             stateId: "story-map-app-selected-portfolio",
             storeConfig: {
-                pageSize: 300,
+                pageSize: 2000,
                 models: me.selectedPiLevelType == 'UserStory' ? [me.secondLevelPI] :[me.fourthLevelPI],
                 context: {project: null}
             },
             listeners: {
               stateloaded: this._updateView,
+              beforestatesave:function(me, state){
+
+                if (state && state.value === null){
+                  return false;
+                }
+              },
               scope: this
             }
         });
@@ -407,7 +413,22 @@ Ext.define("StoryMapApp", {
         return this.down('#display_box');
     },
     getPortfolioItem: function(){
-        return this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getRecord() || null;
+        this.logger.log('getPortfolioItem', this.down('rallyartifactsearchcombobox').getValue());
+        var val = this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getValue(),
+            rec = this.down('rallyartifactsearchcombobox') && this.down('rallyartifactsearchcombobox').getRecord() || null;
+
+            this.logger.log('getPortfolioItem', val, this.down('rallyartifactsearchcombobox').getStore());
+        if (val && rec === null){
+            this.down('rallyartifactsearchcombobox').getStore().each(function(r){
+              if (r.get('_ref') === val){
+                 rec = r;
+              }
+              console.log('r',r.get('_ref'),r.getData());
+            });
+           this.logger.log('rec', rec);
+        }
+        return rec;
+
     },
     showErrorNotification: function(msg){
         this.setLoading(false);
@@ -439,7 +460,7 @@ Ext.define("StoryMapApp", {
 
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
-        if (!pi || (releases.length < 1 && 'UserStory' == me.selectedPiLevelType)){
+        if (!pi || pi.get('ObjectID') === null || (releases.length < 1 && 'UserStory' == me.selectedPiLevelType)){
             me.showMsg("Please select a portfolio item and releases");
             return;
         }
@@ -730,7 +751,10 @@ Ext.define("StoryMapApp", {
               scope: this,
               columnvisibilitychanged: function(collapsiblePlugin){
 
+
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
+
+                this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
                 var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
                     columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
