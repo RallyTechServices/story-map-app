@@ -3,13 +3,13 @@
 <head>
     <title>Story Map App</title>
     <!--  (c) 2016 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jul 10 2017 11:48:34 GMT-0600 (MDT) -->
+    <!--  Build Date: Wed Jul 26 2017 12:19:37 GMT-0600 (MDT) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jul 10 2017 11:48:34 GMT-0600 (MDT)";
+        var APP_BUILD_DATE = "Wed Jul 26 2017 12:19:37 GMT-0600 (MDT)";
         var STORY    = "US951";
         var BUILDER  = "corkr03";
-        var CHECKSUM = 50705149487;
+        var CHECKSUM = 57979268430;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
@@ -239,7 +239,7 @@ Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
 
       applyState: function(state) {
         if (state && state.value && state.value !== null){
-      
+
           this.store.on('load', function() {
 
               this.setValue(state.value);
@@ -250,6 +250,65 @@ Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
           this.store.load();
         }
       }
+});
+
+Ext.override(Rally.ui.cardboard.plugin.CollapsibleColumns, {
+
+_calculateColumnWidth: function() {
+         if (!this.columnExpanded) {
+             return this.self.COLLAPSED_WIDTH;
+         } else {
+             var visibleColumns = this.cardboard.getVisibleColumns();
+             var expandedCount = this._numberOfExpandedColumns(visibleColumns);
+             var collapsedCount = visibleColumns.length - expandedCount;
+
+             _.each(visibleColumns, function (column) {
+                 if (column !== this.column && this._isColumnExpanded(column)) {
+                     column.getColumnHeaderCell().setWidth('auto');
+                 }
+             }, this);
+             console.log('this.cardboard.', this.cardboard.getWidth(), ' visible columns ', visibleColumns, ' expandedCount ', expandedCount, ' collapsedCount ', collapsedCount);
+             return (this.cardboard.getWidth() - collapsedCount * this.self.COLLAPSED_WIDTH) / expandedCount;
+         }
+     },
+     _resizeColumn: function (immediate) {
+          var width = this._calculateColumnWidth();
+          console.log('_resizeColumn', width);
+          var animPromises = [];
+
+          if (immediate) {
+              var deferred = Ext.create('Deft.Deferred');
+              animPromises.push(deferred.promise);
+              Ext.defer(function() {
+                  deferred.resolve();
+              }, 1);
+
+              var els = _.compact(this.column.getContentCellContainers().concat([
+                  this.column.getColumnHeaderCell(),
+                  this.sizingCell
+              ]));
+              _.invoke(els, 'setWidth', this.columnExpanded ? 'auto' : width);
+          } else {
+              this._animating = true;
+              animPromises.push(this._animateResize(this.column.getColumnHeaderCell(), width));
+              _.each(this.column.getContentCellContainers(), function(cell) {
+                  animPromises.push(this._animateResize(cell, width));
+              }, this);
+              if(this.sizingCell) {
+                  animPromises.push(this._animateResize(this.sizingCell, width));
+              }
+              if (!this.columnExpanded) {
+                  animPromises.push(this._animate(this.collapsedTitle, {
+                      from: { top: '-200px', opacity: 0 },
+                      to: { top: '-14px', opacity: 1 }
+                  }));
+              }
+          }
+
+          return Deft.Promise.all(animPromises).always(function () {
+              delete this._animating;
+          }, this);
+      },
 });
 
 Ext.define('CATS.utils.CardboardPrint',{
@@ -1356,7 +1415,7 @@ Ext.define("StoryMapApp", {
         var me = this;
 
         me.getDisplayBox().removeAll();
-
+        this.logger.log('_addBoard', me.getDisplayBox().getWidth(), me.getWidth());
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
@@ -1422,13 +1481,16 @@ Ext.define("StoryMapApp", {
             columns: columns,
             listeners: {
               scope: this,
+              resize: function(d,width,height,oldWidth,oldHeight){
+                 this.logger.log('resize', width, height, oldWidth, oldHeight);
+              },
               columnvisibilitychanged: function(collapsiblePlugin){
-
-
+                console.log('columnvisibilitychanged', this.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
-
+                console.log('columnvisibilitychanged past if');
                 this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
+                this.logger.log('column info' , collapsiblePlugin.column.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
                     columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
 
@@ -1446,7 +1508,14 @@ Ext.define("StoryMapApp", {
             };
         }
 
-        me.getDisplayBox().add(cardBoardConfig);
+        if (!me.rendered){
+           me.on('render', function(){
+               me.getDisplayBox().add(cardBoardConfig);
+           }, this);
+        } else {
+          me.getDisplayBox().add(cardBoardConfig);
+  
+        }
 
         me.setLoading(false);
     },

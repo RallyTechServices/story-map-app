@@ -683,7 +683,7 @@ Ext.define("StoryMapApp", {
         var me = this;
 
         me.getDisplayBox().removeAll();
-
+        this.logger.log('_addBoard', me.getDisplayBox().getWidth(), me.getWidth());
         var releases = this.down('#cbReleases') && this.down('#cbReleases').getValue() || [];
 
         var releaseFilters = [{property:'Release',value:null}];
@@ -749,13 +749,16 @@ Ext.define("StoryMapApp", {
             columns: columns,
             listeners: {
               scope: this,
+              resize: function(d,width,height,oldWidth,oldHeight){
+                 this.logger.log('resize', width, height, oldWidth, oldHeight);
+              },
               columnvisibilitychanged: function(collapsiblePlugin){
-
-
+                console.log('columnvisibilitychanged', this.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
-
+                console.log('columnvisibilitychanged past if');
                 this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
+                this.logger.log('column info' , collapsiblePlugin.column.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
                     columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
 
@@ -773,7 +776,14 @@ Ext.define("StoryMapApp", {
             };
         }
 
-        me.getDisplayBox().add(cardBoardConfig);
+        if (!me.rendered){
+           me.on('render', function(){
+               me.getDisplayBox().add(cardBoardConfig);
+           }, this);
+        } else {
+          me.getDisplayBox().add(cardBoardConfig);
+  
+        }
 
         me.setLoading(false);
     },
