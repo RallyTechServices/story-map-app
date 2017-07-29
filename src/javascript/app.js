@@ -753,9 +753,11 @@ Ext.define("StoryMapApp", {
                  this.logger.log('resize', width, height, oldWidth, oldHeight);
               },
               columnvisibilitychanged: function(collapsiblePlugin){
+                //this.getWidth for Ashish is much smaller than mine and the grid appears to be wider than this.getWidth().  Which is causing
+                //a squishly looking board.
                 console.log('columnvisibilitychanged', this.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
-                console.log('columnvisibilitychanged past if');
+              //  console.log('columnvisibilitychanged past if');
                 this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
                 this.logger.log('column info' , collapsiblePlugin.column.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
@@ -782,9 +784,8 @@ Ext.define("StoryMapApp", {
            }, this);
         } else {
           me.getDisplayBox().add(cardBoardConfig);
-  
-        }
 
+        }
         me.setLoading(false);
     },
 
