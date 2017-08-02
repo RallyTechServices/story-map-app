@@ -1,13 +1,13 @@
-#Story Map App
+# Story Map App
 
-This application helps users to do Stroy mapping or 2nd Level PI Mapping. 
-- Lets the user to choose the artifact type (Story or 2nd Level PI) on app settings. 
-- If story is selected, lists all User Stories that belongs to a specific 2nd Level PI and a set of Releases on a cardboard 
+This application helps users to do Story mapping or 2nd Level PI Mapping.
+- Lets the user choose the artifact type (Story or 2nd Level PI) on app settings.
+- If story is selected, lists all User Stories that belong to a specific 2nd Level PI and a set of Releases on a cardboard
 - The column represents the Feature that the Story belongs to.
 - Includes Release Swimlanes
 - Lets user create a Feature
 - Lets user create a Story under a specific feature using the Add Story Button.
-- allows dragging of cards aross columns (features) or rows (releases).
+- Allows dragging of cards across columns (features) or rows (releases).
 
 ![ScreenShot](images/ss1.png)
 
@@ -17,14 +17,14 @@ Users will be able to choose the artifact type and the fields that should appear
 
 ![ScreenShot](images/ss3.png)
 
-####Steps to install the Application
+#### Steps to install the Application
  1. On your dashboard, click on the gear to add an app.
  2. Choose "Custom HTML" from the App Catalog. Add the app.
  3. Paste the code to HTML text area from the link - https://raw.githubusercontent.com/RallyTechServices/story-map-app/master/deploy/App.txt
  4. Click Save.
 
 
-####Steps to get started:
+#### Steps to get started:
  1. Once the application is installed, click on the gear on top right corner of the app to open App Settings and choose the 2nd Level PI Type and the fields that should appear on the card.
  2. Save app settings.
  3. Select a PI.
@@ -33,19 +33,19 @@ Users will be able to choose the artifact type and the fields that should appear
  6. Click on Add Story to add a story under each Feature.
 
 
-#Technical Services App
-
 ## Development Notes
+
+* This cardboard uses both Rally.ui.cardboard.plugin.Scrollable and Rally.ui.cardboard.plugin.CollapsibleColumns.  These plugins weren't built to work together.  This code includes an override to handle recalculating the number of columns to display when columns have been collapsed and uncollapsed.  (It's a small hack; there is a timer because the width of the app is recalculated after the last event that we can capture after a column is hidden -- so we wait a moment and check width again.)
 
 ### First Load
 
-If you've just downloaded this from github and you want to do development, 
+If you've just downloaded this from github and you want to do development,
 you're going to need to have these installed:
 
  * node.js
  * grunt-cli
  * grunt-init
- 
+
 Since you're getting this from github, we assume you have the command line
 version of git also installed.  If not, go get git.
 
@@ -56,15 +56,15 @@ to get set up to develop:
 
 ### Structure
 
-  * src/javascript:  All the JS files saved here will be compiled into the 
+  * src/javascript:  All the JS files saved here will be compiled into the
   target html file
-  * src/style: All of the stylesheets saved here will be compiled into the 
+  * src/style: All of the stylesheets saved here will be compiled into the
   target html file
-  * test/fast: Fast jasmine tests go here.  There should also be a helper 
+  * test/fast: Fast jasmine tests go here.  There should also be a helper
   file that is loaded first for creating mocks and doing other shortcuts
   (fastHelper.js) **Tests should be in a file named <something>-spec.js**
   * test/slow: Slow jasmine tests go here.  There should also be a helper
-  file that is loaded first for creating mocks and doing other shortcuts 
+  file that is loaded first for creating mocks and doing other shortcuts
   (slowHelper.js) **Tests should be in a file named <something>-spec.js**
   * templates: This is where templates that are used to create the production
   and debug html files live.  The advantage of using these templates is that
@@ -80,10 +80,10 @@ to get set up to develop:
         "password":"secret",
         "server": "https://rally1.rallydev.com"
     }
-  
+
 ### Usage of the grunt file
 ####Tasks
-    
+
 ##### grunt debug
 
 Use grunt debug to create the debug html file.  You only need to run this when you have added new files to
@@ -95,7 +95,7 @@ Use grunt build to create the production html file.  We still have to copy the h
 
 ##### grunt test-fast
 
-Use grunt test-fast to run the Jasmine tests in the fast directory.  Typically, the tests in the fast 
+Use grunt test-fast to run the Jasmine tests in the fast directory.  Typically, the tests in the fast
 directory are more pure unit tests and do not need to connect to Rally.
 
 ##### grunt test-slow
@@ -133,4 +133,3 @@ pageOid and panelOid lines to install in a new place.  CAUTION:  Currently, erro
 ##### grunt watch
 
 Run this to watch files (js and css).  When a file is saved, the task will automatically build and deploy as shown in the deploy section above.
-

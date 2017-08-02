@@ -11,7 +11,7 @@ Ext.define("StoryMapApp", {
         {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
             width: '100pct'
         },
-        {xtype:'container',itemId:'display_box'}
+        {xtype:'container',itemId:'display_box', layout: { type:'fit' } }
     ],
 
     integrationHeaders : {
@@ -716,11 +716,15 @@ Ext.define("StoryMapApp", {
             rowReleaseRecords.push(null);
         }
 
+        var width = this.getSelectorBox().getWidth();
+        this.getDisplayBox().getEl().on('afterupdate', function(){console.log('yoyoyo');});
+
         var cardBoardConfig = {
             xtype: 'rallycardboard',
             itemId: 'storyCardBoard',
             types: me.selectedPiLevelType == 'UserStory' ? ['HierarchicalRequirement']:[me.secondLevelPI ],
             attribute: me.selectedPiLevelType == 'UserStory' ? 'PortfolioItem' : 'Parent',
+            width: width,
             plugins: [
                 {
                     ptype: 'rallyscrollablecardboard',
@@ -741,7 +745,7 @@ Ext.define("StoryMapApp", {
                     headerTpl: me.selectedPiLevelType == 'UserStory' ? '{Feature}' : '{Parent}'
                 },
                 plugins: [{
-                    ptype: 'rallycardboardcollapsiblecolumns'
+                    ptype: 'rallycardboardcollapsiblecolumns2'
                 }]
             },
 
@@ -755,16 +759,41 @@ Ext.define("StoryMapApp", {
               columnvisibilitychanged: function(collapsiblePlugin){
                 //this.getWidth for Ashish is much smaller than mine and the grid appears to be wider than this.getWidth().  Which is causing
                 //a squishly looking board.
-                console.log('columnvisibilitychanged', this.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
                 if (!collapsiblePlugin || !collapsiblePlugin.getCmp || !collapsiblePlugin.column){ return; }
-              //  console.log('columnvisibilitychanged past if');
-                this.logger.log('columnvisibilitychanged', collapsiblePlugin.getCmp().getWidth());
 
-                this.logger.log('column info' , collapsiblePlugin.column.getWidth(), this.down('rallycardboard') && this.down('rallycardboard').getWidth());
-                var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
-                    columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
+                var cardboard = collapsiblePlugin.getCmp().ownerCardboard;
+                var plugin = cardboard.findPlugin('rallyscrollablecardboard');
+                if(plugin.getScrollableColumns().length === 0){
+                    this.logger.log('no scrollable columns');
+                    return;
+                }
 
-                this._updateColumnHeaderData(columnHeader, record, collapsiblePlugin.columnExpanded) ;
+
+                // assuming that the selector boxes don't change size!
+                var comparison_width = this.ownerCt.getWidth() - 20;
+
+                //this.logger.log('cardboard/app', cardboard.getWidth(), comparison_width, cardboard.getEl().getWidth());
+                while(cardboard.getWidth() && cardboard.getWidth() > comparison_width && cardboard.getVisibleColumns().length > 1){
+                    this.logger.log('clearing a column');
+                    cardboard.hideColumn(plugin.getLastVisibleScrollableColumn());
+                }
+                plugin._addScrollButtons();
+
+// sometimes, the refresh from the columns pushes the page to the right but it
+// doesn't fire an event!  So let's stay quiet a moment and then check the size again
+                function sleep (time) {
+                    return new Promise((resolve) => setTimeout(resolve, time));
+                }
+
+                sleep(1000).then(() => {
+                    while(cardboard.getWidth() && cardboard.getWidth() > comparison_width && cardboard.getVisibleColumns().length > 1){
+                        cardboard.hideColumn(plugin.getLastVisibleScrollableColumn());
+                        plugin._addScrollButtons();
+                    }
+                });
+                //var record = collapsiblePlugin.column && collapsiblePlugin.column.record,
+                 //   columnHeader = collapsiblePlugin.getCmp().getColumnHeader();
+                //this._updateColumnHeaderData(columnHeader, record, collapsiblePlugin.columnExpanded) ;
 
               }
             }
