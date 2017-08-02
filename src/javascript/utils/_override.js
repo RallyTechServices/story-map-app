@@ -40,61 +40,17 @@ Ext.override(Rally.ui.combobox.ArtifactSearchComboBox, {
       }
 });
 
-Ext.override(Rally.ui.cardboard.plugin.CollapsibleColumns, {
+Ext.override(Rally.ui.cardboard.plugin.Scrollable,{
+    _addScrollButtons: function() {
+        if (this.cmp.backwardsButton) {
+            this.cmp.backwardsButton.destroy();
+        }
 
-_calculateColumnWidth: function() {
-         if (!this.columnExpanded) {
-             return this.self.COLLAPSED_WIDTH;
-         } else {
-             var visibleColumns = this.cardboard.getVisibleColumns();
-             var expandedCount = this._numberOfExpandedColumns(visibleColumns);
-             var collapsedCount = visibleColumns.length - expandedCount;
+        if (this.cmp.forwardsButton) {
+            this.cmp.forwardsButton.destroy();
+        }
 
-             _.each(visibleColumns, function (column) {
-                 if (column !== this.column && this._isColumnExpanded(column)) {
-                     column.getColumnHeaderCell().setWidth('auto');
-                 }
-             }, this);
-             console.log('this.cardboard.', this.cardboard.getWidth(), ' visible columns ', visibleColumns, ' expandedCount ', expandedCount, ' collapsedCount ', collapsedCount);
-             return (this.cardboard.getWidth() - collapsedCount * this.self.COLLAPSED_WIDTH) / expandedCount;
-         }
-     },
-     _resizeColumn: function (immediate) {
-          var width = this._calculateColumnWidth();
-          console.log('_resizeColumn', width);
-          var animPromises = [];
+        this.callParent(arguments);
+    }
 
-          if (immediate) {
-              var deferred = Ext.create('Deft.Deferred');
-              animPromises.push(deferred.promise);
-              Ext.defer(function() {
-                  deferred.resolve();
-              }, 1);
-
-              var els = _.compact(this.column.getContentCellContainers().concat([
-                  this.column.getColumnHeaderCell(),
-                  this.sizingCell
-              ]));
-              _.invoke(els, 'setWidth', this.columnExpanded ? 'auto' : width);
-          } else {
-              this._animating = true;
-              animPromises.push(this._animateResize(this.column.getColumnHeaderCell(), width));
-              _.each(this.column.getContentCellContainers(), function(cell) {
-                  animPromises.push(this._animateResize(cell, width));
-              }, this);
-              if(this.sizingCell) {
-                  animPromises.push(this._animateResize(this.sizingCell, width));
-              }
-              if (!this.columnExpanded) {
-                  animPromises.push(this._animate(this.collapsedTitle, {
-                      from: { top: '-200px', opacity: 0 },
-                      to: { top: '-14px', opacity: 1 }
-                  }));
-              }
-          }
-
-          return Deft.Promise.all(animPromises).always(function () {
-              delete this._animating;
-          }, this);
-      },
 });
