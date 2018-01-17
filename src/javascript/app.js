@@ -5,12 +5,8 @@ Ext.define("StoryMapApp", {
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
     items: [
-      {xtype:'container',itemId:'print_box',layout:{type:'hbox'},
-          width: '100pct'
-      },
-        {xtype:'container',itemId:'selector_box',layout:{type:'hbox'},
-            width: '100pct'
-        },
+        {xtype:'container',itemId:'print_box',layout:{type:'hbox'}, width: '100pct' },
+        {xtype:'container',itemId:'selector_box',layout:{type:'hbox'}, width: '100pct' },
         {xtype:'container',itemId:'display_box', layout: { type:'fit' } }
     ],
 
@@ -30,8 +26,9 @@ Ext.define("StoryMapApp", {
         var piLevelType = this.getPILevelType();
 
         var typeFilters = [{property: 'TypePath', operator: 'contains', value: 'PortfolioItem/'}];
-        var settings = [
-            {
+        var settings = [];
+        if ( !Ext.isEmpty(me.thirdLevelPI)) {
+            settings.push({
                 xtype      : 'fieldcontainer',
                 fieldLabel : 'Artifact to Map',
                 defaultType: 'radiofield',
@@ -57,17 +54,23 @@ Ext.define("StoryMapApp", {
                         checked: piLevelType === 'UserStory'
                     }
                 ]
-            },
-            {
-                xtype: 'rallyfieldpicker',
-                name: 'columnNames',
-                autoExpand: true,
-                modelTypes: ['HierarchicalRequirement','PortfolioItem'],
-                //modelTypes: piLevelType && piLevelType != 'UserStory' ? [piLevelType] : ['HierarchicalRequirement'],
-                alwaysSelectedValues: ['FormattedID','Name'],
-                fieldBlackList: ['Attachments','Children']
-            }
-            ];
+            });
+        }
+
+        var models_for_columns = ['HierarchicalRequirement'];
+        if ( !Ext.isEmpty(me.thirdLevelPI)) {
+            models_for_columns.push('PortfolioItem');
+        }
+
+        settings.push({
+            xtype: 'rallyfieldpicker',
+            name: 'columnNames',
+            autoExpand: true,
+            label: 'Display Fields on Cards',
+            modelTypes: models_for_columns,
+            alwaysSelectedValues: ['FormattedID','Name'],
+            fieldBlackList: ['Attachments','Children']
+        });
         return settings;
     },
 
@@ -95,10 +98,17 @@ Ext.define("StoryMapApp", {
                     if(pi.get('Ordinal')==3){
                         me.fourthLevelPI = pi.get('TypePath');
                     }
-
                 });
 
-                Deft.Promise.all([me._getModel('HierarchicalRequirement'),me._getModel(me.featurePI),me._getReleases(),me._getModel(me.secondLevelPI),me._getModel(me.thirdLevelPI)],me).then({
+                var promises = [
+                    function(){ return me._getModel('HierarchicalRequirement'); },
+                    function(){ return me._getModel(me.featurePI); },
+                    function(){ return me._getReleases(); },
+                    function(){ return me._getModel(me.secondLevelPI); },
+                    function(){ return me._getModel(me.thirdLevelPI); }
+                ];
+
+                Deft.Chain.sequence(promises,me).then({
                     scope: me,
                     success: function(results) {
                         me.storyModel = results[0];
@@ -142,6 +152,10 @@ Ext.define("StoryMapApp", {
 
                         me.releases = results[2];
                         me.secondLevelPIModel = results[3];
+                        if ( Ext.isEmpty(me.secondLevelPIModel) ) {
+                            Rallly.ui.notify.Notifier.showError({message: "This app requires at least two Portfolio Item levels"});
+                            return;
+                        }
                         var secondLevelStateField = results[3].getField('State');
                         secondLevelStateField.getAllowedValueStore().load({
                             fetch: ['StringValue'],
@@ -160,27 +174,26 @@ Ext.define("StoryMapApp", {
                             scope: me
                         });
 
-
                         me.thirdLevelPIModel = results[4];
-
+                        if ( !Ext.isEmpty(me.thirdLevelPIModel)) {
                         var thirdLevelStateField = results[4].getField('State');
-                        thirdLevelStateField.getAllowedValueStore().load({
-                            fetch: ['StringValue'],
-                            callback: function(allowedValues, operation, success){
-                                if (success){
-                                    var values = _.map(allowedValues, function(av){return av.get('_ref')});
-                                    var i = 0;
-                                    me.logger.log('AllowedValues ', values);
-                                    me.thirdLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
+                            thirdLevelStateField.getAllowedValueStore().load({
+                                fetch: ['StringValue'],
+                                callback: function(allowedValues, operation, success){
+                                    if (success){
+                                        var values = _.map(allowedValues, function(av){return av.get('_ref')});
+                                        var i = 0;
+                                        me.logger.log('AllowedValues ', values);
+                                        me.thirdLevelStateFieldInitialValue = values[0] == "null" ?  values[1]:values[0];
 
-                                } else {
-                                    var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
-                                    Rally.ui.notify.Notifier.showError({message: msg});
-                                }
-                            },
-                            scope: me
-                        });
-
+                                    } else {
+                                        var msg = 'Error retrieving allowed values for State' + operation.error.errors[0];
+                                        Rally.ui.notify.Notifier.showError({message: msg});
+                                    }
+                                },
+                                scope: me
+                            });
+                        }
                         me.addPickers(me.selectedPiLevelType);
                     },
                     failure: function(error_message){
@@ -189,8 +202,6 @@ Ext.define("StoryMapApp", {
                 }).always(function() {
                     me.setLoading(false);
                 });
-
-
             }
         });
 
@@ -246,7 +257,9 @@ Ext.define("StoryMapApp", {
 
     _getModel: function(modelType){
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("Getting model for ", modelType);
         var me = this;
+        if ( Ext.isEmpty(modelType) ) { return null; }
 
         Rally.data.ModelFactory.getModel({
             type: modelType, //'HierarchicalRequirement',
@@ -423,7 +436,6 @@ Ext.define("StoryMapApp", {
               if (r.get('_ref') === val){
                  rec = r;
               }
-              console.log('r',r.get('_ref'),r.getData());
             });
            this.logger.log('rec', rec);
         }

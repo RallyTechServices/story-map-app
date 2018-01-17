@@ -368,7 +368,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-contrib-watch');
 
     //tasks
-    grunt.registerTask('default', ['debug','build','ugly','apikey']);
+    grunt.registerTask('default', ['build']);
 
     // (uses all the files in src/javascript)
     grunt.registerTask('build', "Create the html for deployment",['template:prod','setPostBuildInfo']);
