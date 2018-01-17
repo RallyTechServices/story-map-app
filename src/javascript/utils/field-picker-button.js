@@ -8,7 +8,7 @@ Ext.define('CATS.utils.FieldPicker', {
         'Ext.state.Manager'
     ],
     toolTipConfig: {
-        html: 'Show Columns',
+        html: 'Show on Cards',
         anchor: 'top'
     },
     iconCls: 'icon-add-column',
@@ -166,7 +166,7 @@ Ext.define('CATS.utils.FieldPicker', {
     },
 
     getTitle: function () {
-        return 'Show Columns';
+        return 'Show on Cards';
     },
 
     /**
